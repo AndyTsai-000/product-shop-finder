@@ -1,0 +1,376 @@
+<title>產品找店家</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 版面：一欄三步驟（產品 → 地區 → 產業清單），產業每列一顆「開地圖」 */
+:root{
+  --bg:#f3f5f4; --card:#ffffff; --ink:#18201d; --sub:#5d6964; --line:#dbe1de;
+  --accent:#1d6b57; --accent-ink:#ffffff; --accent-soft:#e1efe9;
+  --t-same:#1d6b57; --t-up:#8a6a2c; --t-partner:#3a5f9e; --t-client:#a24a5a;
+  --font:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
+    --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
+    --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
+  --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
+    --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
+.wrap{max-width:760px;margin:0 auto;padding-block:24px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+h1{font-size:24px;margin:0;text-wrap:balance}
+.lead{color:var(--sub);margin:4px 0 0;font-size:14px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:10px}
+.label{font-size:13px;color:var(--sub);font-weight:700;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+  padding:7px 15px;font:inherit;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip:focus-visible,.go:focus-visible,select:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;min-width:0}
+input{flex:1 1 200px}
+select{flex:1 1 140px;max-width:220px}
+.btn{font:inherit;border:1px solid var(--accent);border-radius:8px;padding:8px 16px;
+  background:transparent;color:var(--accent);cursor:pointer}
+.list{display:flex;flex-direction:column;gap:16px}
+.group{display:flex;flex-direction:column;gap:8px;padding-left:12px;border-left:3px solid var(--tone)}
+.group.same{--tone:var(--t-same)} .group.up{--tone:var(--t-up)}
+.group.partner{--tone:var(--t-partner)} .group.client{--tone:var(--t-client)}
+.group h2{font-size:15px;margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.group h2 span{font-size:12px;font-weight:400;color:var(--sub)}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.ind{background:var(--accent-soft);color:var(--ink);border:1px solid var(--line);font:inherit;
+  border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer}
+.ind .n{color:var(--sub);font-size:12px;margin-left:5px;font-variant-numeric:tabular-nums}
+.ind:hover{border-color:var(--accent)}
+.ind.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ind.on .n{color:inherit;opacity:.8}
+.ind:focus-visible,.go:focus-visible,.more:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{color:var(--sub);font-size:13px;margin:0}
+.hint a{color:var(--accent)}
+.res-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.res-head h2{font-size:17px;margin:0}
+.res-head h2 span{font-size:13px;font-weight:400;color:var(--sub);margin-left:8px;font-variant-numeric:tabular-nums}
+.go{background:var(--accent);color:var(--accent-ink);text-decoration:none;border-radius:8px;padding:6px 14px;font-size:14px;white-space:nowrap}
+.shops{display:flex;flex-direction:column}
+.shop{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.shop:first-child{border-top:0}
+.shop b{font-weight:500;min-width:0;word-break:break-word;user-select:all}
+.shop .src{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:0 8px;align-self:start;white-space:nowrap}
+.shop .addr,.shop .tel{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
+.shop a{color:var(--accent);text-decoration:none}
+.shop a:hover{text-decoration:underline}
+.shop .tel{color:var(--ink);font-variant-numeric:tabular-nums}
+.more{align-self:center;font:inherit;font-size:14px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:8px;padding:7px 18px;cursor:pointer}
+.empty{color:var(--sub);font-size:14px;padding:8px 0}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>產品找店家</h1>
+    <p class="lead">選產品和地區，列出跟這個產品有關聯的產業：同業、上游、合作夥伴、潛在客戶。點產業就列出這一區的店家名單。</p>
+  </header>
+
+  <section class="step">
+    <div class="label">產品</div>
+    <div class="chips" id="products"></div>
+    <div class="row">
+      <input id="custom" placeholder="其他產品，例如：咖啡豆" aria-label="其他產品">
+      <button class="btn" id="customGo">查詢</button>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="label">地區</div>
+    <div class="row">
+      <select id="county" aria-label="縣市"></select>
+      <select id="district" aria-label="鄉鎮市區"></select>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="label" id="indLabel">相關產業</div>
+    <div class="list" id="industries"></div>
+  </section>
+
+  <section class="step" id="result" hidden>
+    <div class="res-head">
+      <h2 id="resTitle"></h2>
+      <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
+    </div>
+    <div class="shops" id="shops"></div>
+    <button class="more" id="more" hidden>顯示更多</button>
+    <p class="hint" id="source"></p>
+  </section>
+</div>
+
+<script>
+/* 產品 → 依關係分類的相關產業。用「、」分隔，「名稱=搜尋字」可指定送去 Google 地圖的字 */
+const GROUPS = [
+  ['same', '同業・通路', '賣這個產品的店'],
+  ['up', '上游・材料', '工廠、原料、耗材'],
+  ['partner', '合作夥伴', '可以互相介紹客人、一起接案'],
+  ['client', '潛在客戶', '會用到這個產品，可以去推銷']
+];
+const PRODUCTS = {
+  '家具': {
+    same: '家具行、家具批發、實木家具、訂製家具、二手家具、辦公家具',
+    up: '家具工廠、木材行、五金行、沙發布・皮革=沙發布 皮革、海綿・床墊=海綿 床墊工廠',
+    partner: '室內設計=室內設計公司、系統櫃、裝潢工程=裝潢公司、窗簾店、燈具店、木地板、搬家公司、房屋仲介',
+    client: '建設公司、飯店、民宿、餐廳、咖啡廳、月子中心、補習班、長照中心'
+  },
+  '窗簾': {
+    same: '窗簾店、百葉窗・捲簾=百葉窗 捲簾、窗簾工廠、窗簾清洗',
+    up: '窗簾布料批發=窗簾布 批發、窗簾軌道五金=窗簾軌道 五金、布料行',
+    partner: '室內設計=室內設計公司、裝潢工程=裝潢公司、系統櫃、家具行、壁紙、油漆工程、鋁門窗、清潔公司',
+    client: '建設公司、飯店、民宿、診所、月子中心、補習班、幼兒園、包租代管'
+  },
+  '空氣清淨機': {
+    same: '空氣清淨機、家電行、家電量販店、3C 賣場=3C賣場',
+    up: '濾網耗材=空氣清淨機 濾網、家電維修、電器批發',
+    partner: '冷氣空調、全熱交換器、室內設計=室內設計公司、裝潢工程=裝潢公司、嬰兒用品店、寵物用品店、除甲醛・空氣檢測=除甲醛 空氣檢測',
+    client: '診所、牙醫診所、幼兒園、月子中心、補習班、美髮店、寵物美容、長照中心、共享辦公室'
+  },
+  '淨水器': {
+    same: '淨水器、飲水機、RO 逆滲透=RO逆滲透、淨水設備',
+    up: '濾心耗材=淨水器 濾心、水電材料行、水處理設備=水處理設備 工廠',
+    partner: '水電行、廚具行、熱水器、室內設計=室內設計公司、裝潢工程=裝潢公司、水塔清洗、系統櫃',
+    client: '餐廳、咖啡廳、飲料店、早餐店、幼兒園、補習班、健身房、診所、共享辦公室'
+  },
+  '蛋白粉': {
+    same: '運動營養品=運動營養品 乳清蛋白、保健食品店=保健食品、藥局、藥妝店、有機食品店',
+    up: '食品原料行、保健食品代工=保健食品 代工、營養品批發=保健食品 批發',
+    partner: '健身工作室=私人教練 健身工作室、營養諮詢=營養師 營養諮詢、運動用品店、物理治療=物理治療所、瑜伽教室',
+    client: '健身房、拳擊館、運動中心、瘦身美容、長照中心、月子中心、跑步・運動社團=路跑 運動俱樂部'
+  }
+};
+/* 其他產品用的通用產業 */
+const GENERIC = p => ({
+  same: `${p}專賣店=${p}、${p}批發=${p} 批發、${p}維修=${p} 維修`,
+  up: `${p}工廠=${p} 工廠、${p}原料=${p} 原料、${p}貿易商=${p} 貿易`
+});
+const parse = s => (s || '').split('、').filter(Boolean).map(w => {
+  const [name, q] = w.split('=');
+  return { name, q: q || name };
+});
+
+/* 縣市 → 鄉鎮市區（沒寫字尾的補「區」） */
+const AREAS = {
+  '臺北市':'中正 大同 中山 松山 大安 萬華 信義 士林 北投 內湖 南港 文山',
+  '新北市':'板橋 三重 中和 永和 新莊 新店 樹林 鶯歌 三峽 淡水 汐止 瑞芳 土城 蘆洲 五股 泰山 林口 深坑 石碇 坪林 三芝 石門 八里 平溪 雙溪 貢寮 金山 萬里 烏來',
+  '基隆市':'仁愛 信義 中正 中山 安樂 暖暖 七堵',
+  '桃園市':'桃園 中壢 大溪 楊梅 蘆竹 大園 龜山 八德 龍潭 平鎮 新屋 觀音 復興',
+  '新竹市':'東區 北區 香山區',
+  '新竹縣':'竹北市 竹東鎮 新埔鎮 關西鎮 湖口鄉 新豐鄉 芎林鄉 橫山鄉 北埔鄉 寶山鄉 峨眉鄉 尖石鄉 五峰鄉',
+  '苗栗縣':'苗栗市 頭份市 苑裡鎮 通霄鎮 竹南鎮 後龍鎮 卓蘭鎮 大湖鄉 公館鄉 銅鑼鄉 南庄鄉 頭屋鄉 三義鄉 西湖鄉 造橋鄉 三灣鄉 獅潭鄉 泰安鄉',
+  '臺中市':'中區 東區 南區 西區 北區 北屯 西屯 南屯 太平 大里 霧峰 烏日 豐原 后里 石岡 東勢 和平 新社 潭子 大雅 神岡 大肚 沙鹿 龍井 梧棲 清水 大甲 外埔 大安',
+  '彰化縣':'彰化市 員林市 鹿港鎮 和美鎮 北斗鎮 溪湖鎮 田中鎮 二林鎮 線西鄉 伸港鄉 福興鄉 秀水鄉 花壇鄉 芬園鄉 大村鄉 埔鹽鄉 埔心鄉 永靖鄉 社頭鄉 二水鄉 田尾鄉 埤頭鄉 芳苑鄉 大城鄉 竹塘鄉 溪州鄉',
+  '南投縣':'南投市 埔里鎮 草屯鎮 竹山鎮 集集鎮 名間鄉 鹿谷鄉 中寮鄉 魚池鄉 國姓鄉 水里鄉 信義鄉 仁愛鄉',
+  '雲林縣':'斗六市 斗南鎮 虎尾鎮 西螺鎮 土庫鎮 北港鎮 古坑鄉 大埤鄉 莿桐鄉 林內鄉 二崙鄉 崙背鄉 麥寮鄉 東勢鄉 褒忠鄉 臺西鄉 元長鄉 四湖鄉 口湖鄉 水林鄉',
+  '嘉義市':'東區 西區',
+  '嘉義縣':'太保市 朴子市 布袋鎮 大林鎮 民雄鄉 溪口鄉 新港鄉 六腳鄉 東石鄉 義竹鄉 鹿草鄉 水上鄉 中埔鄉 竹崎鄉 梅山鄉 番路鄉 大埔鄉 阿里山鄉',
+  '臺南市':'中西 東 南 北 安平 安南 永康 歸仁 新化 左鎮 玉井 楠西 南化 仁德 關廟 龍崎 官田 麻豆 佳里 西港 七股 將軍 學甲 北門 新營 後壁 白河 東山 六甲 下營 柳營 鹽水 善化 大內 山上 新市 安定',
+  '高雄市':'新興 前金 苓雅 鹽埕 鼓山 旗津 前鎮 三民 楠梓 小港 左營 仁武 大社 岡山 路竹 阿蓮 田寮 燕巢 橋頭 梓官 彌陀 永安 湖內 鳳山 大寮 林園 鳥松 大樹 旗山 美濃 六龜 內門 杉林 甲仙 桃源 那瑪夏 茂林 茄萣',
+  '屏東縣':'屏東市 潮州鎮 東港鎮 恆春鎮 萬丹鄉 長治鄉 麟洛鄉 九如鄉 里港鄉 鹽埔鄉 高樹鄉 萬巒鄉 內埔鄉 竹田鄉 新埤鄉 枋寮鄉 新園鄉 崁頂鄉 林邊鄉 南州鄉 佳冬鄉 琉球鄉 車城鄉 滿州鄉 枋山鄉 三地門鄉 霧臺鄉 瑪家鄉 泰武鄉 來義鄉 春日鄉 獅子鄉 牡丹鄉',
+  '宜蘭縣':'宜蘭市 羅東鎮 蘇澳鎮 頭城鎮 礁溪鄉 壯圍鄉 員山鄉 冬山鄉 五結鄉 三星鄉 大同鄉 南澳鄉',
+  '花蓮縣':'花蓮市 鳳林鎮 玉里鎮 新城鄉 吉安鄉 壽豐鄉 光復鄉 豐濱鄉 瑞穗鄉 富里鄉 秀林鄉 萬榮鄉 卓溪鄉',
+  '臺東縣':'臺東市 成功鎮 關山鎮 卑南鄉 鹿野鄉 池上鄉 東河鄉 長濱鄉 太麻里鄉 大武鄉 綠島鄉 海端鄉 延平鄉 金峰鄉 達仁鄉 蘭嶼鄉',
+  '澎湖縣':'馬公市 湖西鄉 白沙鄉 西嶼鄉 望安鄉 七美鄉',
+  '金門縣':'金城鎮 金湖鎮 金沙鎮 金寧鄉 烈嶼鄉 烏坵鄉',
+  '連江縣':'南竿鄉 北竿鄉 莒光鄉 東引鄉'
+};
+const districtsOf = c => (AREAS[c] || '').split(' ').filter(Boolean)
+  .map(d => /[市鎮鄉區]$/.test(d) ? d : d + '區');
+
+const $ = id => document.getElementById(id);
+let product = '家具';
+
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+function renderProducts() {
+  const box = $('products'); box.innerHTML = '';
+  Object.keys(PRODUCTS).forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (p === product ? ' on' : '');
+    b.textContent = p;
+    b.onclick = () => pickProduct(p);
+    box.appendChild(b);
+  });
+}
+function pickProduct(p) {
+  p = p.trim(); if (!p) return;
+  product = p;
+  $('custom').value = PRODUCTS[p] ? '' : p;
+  save('product', p);
+  current = '';
+  $('result').hidden = true;
+  renderProducts();
+  renderIndustries();
+}
+$('customGo').onclick = () => pickProduct($('custom').value);
+$('custom').onkeydown = e => { if (e.key === 'Enter') pickProduct($('custom').value); };
+
+function fillCounty() {
+  const sel = $('county');
+  sel.innerHTML = '<option value="">全台灣</option>' +
+    Object.keys(AREAS).map(c => `<option>${c}</option>`).join('');
+  const c = load('county');
+  sel.value = AREAS[c] ? c : '';
+  fillDistrict();
+  const d = load('district');
+  if (districtsOf(sel.value).includes(d)) $('district').value = d;
+}
+function fillDistrict() {
+  const c = $('county').value, sel = $('district');
+  sel.innerHTML = '<option value="">' + (c ? '全部鄉鎮市區' : '先選縣市') + '</option>' +
+    districtsOf(c).map(d => `<option>${d}</option>`).join('');
+  sel.disabled = !c;
+}
+$('county').onchange = () => { fillDistrict(); save('county', $('county').value); save('district', ''); renderIndustries(); showList(); };
+$('district').onchange = () => { save('district', $('district').value); renderIndustries(); showList(); };
+
+/* ---------- 名單資料（site/data，由 build.py 產生）---------- */
+const DATA = 'data/';
+const SRC = ['公司', '商號', '開放地圖'];
+let manifest = null, current = '', shown = 0, rows = [];
+const cache = {};
+
+fetch(DATA + 'manifest.json').then(r => r.json()).then(m => { manifest = m; renderIndustries(); showList(); })
+  .catch(() => { manifest = { industries: {}, counties: [] }; renderIndustries(); });
+
+function infoOf(name) { return manifest && manifest.industries[name]; }
+function countOf(name) {
+  const info = infoOf(name);
+  if (!info) return null;
+  const ci = manifest.counties.indexOf($('county').value);
+  return ci >= 0 ? ((info.c || {})[ci] || 0) : info.n;
+}
+const mapUrl = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+
+function renderIndustries() {
+  const area = $('county').value + $('district').value;
+  $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
+  const table = PRODUCTS[product] || GENERIC(product);
+  const box = $('industries'); box.innerHTML = '';
+  GROUPS.forEach(([key, title, note]) => {
+    const items = parse(table[key]);
+    if (!items.length) return;
+    const g = document.createElement('div');
+    g.className = 'group ' + key;
+    const h = document.createElement('h2');
+    h.textContent = title;
+    const s = document.createElement('span');
+    s.textContent = note;
+    h.appendChild(s);
+    const links = document.createElement('div');
+    links.className = 'links';
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'ind' + (it.name === current ? ' on' : '');
+      b.textContent = it.name;
+      const n = countOf(it.name);
+      if (n !== null) b.insertAdjacentHTML('beforeend', `<span class="n">${n.toLocaleString()}</span>`);
+      b.onclick = () => { current = it.name; currentQ = it.q; renderIndustries(); showList(); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      links.appendChild(b);
+    });
+    g.append(h, links);
+    box.appendChild(g);
+  });
+  if (!PRODUCTS[product]) {
+    box.insertAdjacentHTML('beforeend', '<p class="hint">這個產品還沒有整理合作夥伴和潛在客戶，先列出通用的產業；點了會在 Google 地圖找。</p>');
+  }
+}
+let currentQ = '';
+
+async function loadRows(info, ci) {
+  const file = info.split ? `${info.id}-${ci}.json` : `${info.id}.json`;
+  if (!cache[file]) cache[file] = fetch(DATA + file).then(r => r.json());
+  return cache[file];
+}
+
+async function showList() {
+  if (!current) return;
+  const county = $('county').value, district = $('district').value, area = county + district;
+  const ci = manifest ? manifest.counties.indexOf(county) : -1;
+  $('result').hidden = false;
+  $('resMap').href = mapUrl(currentQ + ' ' + (area || '台灣'));
+  const title = $('resTitle');
+  title.textContent = current;
+  const sub = document.createElement('span');
+  title.appendChild(sub);
+  const box = $('shops');
+  $('more').hidden = true;
+  const info = infoOf(current);
+  rows = [];
+  if (!info || !info.n) {
+    sub.textContent = area || '全台灣';
+    box.innerHTML = `<div class="empty">${manifest ? '這個產業沒有公開名單可以列出，請按右上「在 Google 地圖找」。' : '名單載入中…'}</div>`;
+    $('source').textContent = '';
+    return;
+  }
+  if (info.split && ci < 0) {
+    sub.textContent = '全台灣・' + info.n.toLocaleString() + ' 家';
+    box.innerHTML = '<div class="empty">這個產業家數很多，請先在上方選縣市。</div>';
+    return;
+  }
+  box.innerHTML = '<div class="empty">名單載入中…</div>';
+  const want = current;
+  let all;
+  try { all = await loadRows(info, ci); } catch (e) { box.innerHTML = '<div class="empty">名單載入失敗，請重新整理網頁。</div>'; return; }
+  if (want !== current) return;
+  rows = all.filter(r => (ci < 0 || r[1] === ci) && (!district || r[2] === district));
+  sub.textContent = (area || '全台灣') + '・' + rows.length.toLocaleString() + ' 家';
+  box.innerHTML = rows.length ? '' : '<div class="empty">這個地區沒有找到，試試放大地區，或按右上「在 Google 地圖找」。</div>';
+  shown = 0;
+  more();
+  const withPhone = rows.filter(r => r[4]).length;
+  $('source').innerHTML = `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話，本區 ${withPhone} 家）。` +
+    (manifest.updated ? `資料更新：${manifest.updated}。` : '') + '點地址可在 Google 地圖查看電話與營業時間。';
+}
+
+function more() {
+  const box = $('shops');
+  const end = Math.min(rows.length, shown + 100);
+  for (const r of rows.slice(shown, end)) {
+    const [name, ci, dist, addr, phone, src, lat, lon] = r;
+    const d = document.createElement('div');
+    d.className = 'shop';
+    const b = document.createElement('b'); b.textContent = name;
+    const s = document.createElement('span'); s.className = 'src'; s.textContent = SRC[src];
+    const a = document.createElement('div'); a.className = 'addr';
+    const link = document.createElement('a');
+    link.target = '_blank'; link.rel = 'noopener';
+    link.href = mapUrl(addr ? name + ' ' + addr : lat + ',' + lon);
+    link.textContent = addr || (manifest.counties[ci] + dist + '（看地圖位置）');
+    a.appendChild(link);
+    d.append(b, s, a);
+    if (phone) { const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ' + phone; d.appendChild(t); }
+    box.appendChild(d);
+  }
+  shown = end;
+  $('more').hidden = shown >= rows.length;
+  $('more').textContent = `顯示更多（還有 ${(rows.length - shown).toLocaleString()} 家）`;
+}
+$('more').onclick = more;
+
+const saved = load('product');
+if (saved) { product = saved; if (!PRODUCTS[saved]) $('custom').value = saved; }
+renderProducts();
+fillCounty();
+renderIndustries();
+</script>

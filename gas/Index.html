@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<base target="_top">
+<title>產品找店家</title>
+<style>
+:root{
+  --bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--sub:#6b6a66;--line:#e3e1dc;
+  --accent:#1f6f5c;--accent-ink:#fff;--accent-soft:#e3f0ec;--warn:#a43d2b;--star:#c98a12;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161615;--card:#212120;--ink:#ecebe7;--sub:#a3a19b;--line:#363532;
+    --accent:#5fbfa3;--accent-ink:#0f1a17;--accent-soft:#1f3530;--warn:#ef8a75;--star:#e7b444;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}
+.lead{color:var(--sub);margin:0 0 18px;font-size:14px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.label{font-size:13px;color:var(--sub);margin-bottom:8px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+  padding:7px 14px;font:inherit;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.small{padding:4px 11px;font-size:13px}
+.chip .n{opacity:.7;margin-left:4px;font-size:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:7px 10px;min-width:0}
+input{flex:1 1 180px}
+select{flex:0 1 160px}
+.btn{font:inherit;border:0;border-radius:8px;padding:8px 14px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:18px 0 10px}
+.bar h2{font-size:17px;margin:0}
+.count{color:var(--sub);font-size:13px;font-weight:400;margin-left:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}
+.shop{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.shop h3{font-size:16px;margin:0 0 4px}
+.meta{font-size:13px;color:var(--sub)}
+.star{color:var(--star)}
+.shop p{margin:6px 0 0;font-size:14px;word-break:break-word}
+.shop a{color:var(--accent);text-decoration:none}
+.shop a:hover{text-decoration:underline}
+.msg{color:var(--sub);text-align:center;padding:30px 0}
+.err{color:var(--warn)}
+.more{text-align:center;margin-top:14px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>產品找店家</h1>
+  <p class="lead">選一個產品，看有哪些相關產業，再依地區找店家的名稱、地址、電話（資料來自 Google 地圖）。</p>
+
+  <div class="step">
+    <div class="label">1　產品</div>
+    <div class="chips" id="products"></div>
+    <div class="row" style="margin-top:10px">
+      <input id="custom" placeholder="其他產品，例如：咖啡豆">
+      <button class="btn ghost" id="customGo">查詢</button>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="label">2　地區</div>
+    <div class="row">
+      <select id="county"></select>
+      <select id="district"></select>
+    </div>
+  </div>
+
+  <div class="step hide" id="indStep">
+    <div class="label">3　相關產業</div>
+    <div class="chips" id="industries"></div>
+  </div>
+
+  <div id="out" class="hide">
+    <div class="bar">
+      <h2 id="title"></h2>
+      <button class="btn ghost" id="csv">下載名單（Excel 可開）</button>
+    </div>
+    <div class="chips" id="areas" style="margin-bottom:10px"></div>
+    <div class="grid" id="list"></div>
+    <div class="msg hide" id="msg"></div>
+    <div class="more"><button class="btn ghost hide" id="more">載入更多</button></div>
+  </div>
+</div>
+
+<script>
+/* 產品 → 相關產業。q 是送去 Google 地圖搜尋的字 */
+const PRODUCTS = {
+  '家具': [
+    ['家具行', '家具行'], ['家具批發', '家具批發'], ['訂製家具', '訂製家具 工廠'],
+    ['系統櫃', '系統櫃'], ['實木家具', '實木家具'], ['二手家具', '二手家具'],
+    ['室內設計', '室內設計公司'], ['家具維修', '家具維修 沙發翻新']
+  ],
+  '窗簾': [
+    ['窗簾店', '窗簾店'], ['窗簾布料批發', '窗簾布 批發'], ['窗簾工廠', '窗簾工廠'],
+    ['百葉窗・捲簾', '百葉窗 捲簾'], ['窗簾清洗', '窗簾清洗'], ['室內設計', '室內設計公司'],
+    ['壁紙・軟裝', '壁紙 窗簾 軟裝']
+  ],
+  '空氣清淨機': [
+    ['空氣清淨機專賣', '空氣清淨機'], ['家電行', '家電行'], ['家電量販', '家電量販店'],
+    ['空調・除濕', '空調 除濕機'], ['家電維修', '家電維修'], ['濾網耗材', '空氣清淨機 濾網'],
+    ['全熱交換器', '全熱交換器']
+  ],
+  '淨水器': [
+    ['淨水器專賣', '淨水器'], ['濾心耗材', '淨水器 濾心'], ['淨水器安裝維修', '淨水器 安裝 維修'],
+    ['飲水機', '飲水機'], ['水電行', '水電行'], ['RO 逆滲透', 'RO逆滲透'],
+    ['水塔清洗', '水塔清洗']
+  ],
+  '蛋白粉': [
+    ['運動營養品店', '運動營養品 乳清蛋白'], ['保健食品店', '保健食品'], ['藥局', '藥局'],
+    ['健身房', '健身房'], ['健身器材', '健身器材'], ['有機・健康食品', '有機食品店'],
+    ['營養品批發', '保健食品 批發']
+  ]
+};
+/* 其他產品用的通用產業 */
+const GENERIC = p => [
+  [p + '專賣店', p], [p + '批發', p + ' 批發'], [p + '工廠', p + ' 工廠'],
+  [p + '維修', p + ' 維修'], [p + '貿易商', p + ' 貿易']
+];
+
+/* 縣市 → 鄉鎮市區（沒寫字尾的補「區」） */
+const AREAS = {
+  '臺北市':'中正 大同 中山 松山 大安 萬華 信義 士林 北投 內湖 南港 文山',
+  '新北市':'板橋 三重 中和 永和 新莊 新店 樹林 鶯歌 三峽 淡水 汐止 瑞芳 土城 蘆洲 五股 泰山 林口 深坑 石碇 坪林 三芝 石門 八里 平溪 雙溪 貢寮 金山 萬里 烏來',
+  '基隆市':'仁愛 信義 中正 中山 安樂 暖暖 七堵',
+  '桃園市':'桃園 中壢 大溪 楊梅 蘆竹 大園 龜山 八德 龍潭 平鎮 新屋 觀音 復興',
+  '新竹市':'東區 北區 香山區',
+  '新竹縣':'竹北市 竹東鎮 新埔鎮 關西鎮 湖口鄉 新豐鄉 芎林鄉 橫山鄉 北埔鄉 寶山鄉 峨眉鄉 尖石鄉 五峰鄉',
+  '苗栗縣':'苗栗市 頭份市 苑裡鎮 通霄鎮 竹南鎮 後龍鎮 卓蘭鎮 大湖鄉 公館鄉 銅鑼鄉 南庄鄉 頭屋鄉 三義鄉 西湖鄉 造橋鄉 三灣鄉 獅潭鄉 泰安鄉',
+  '臺中市':'中區 東區 南區 西區 北區 北屯 西屯 南屯 太平 大里 霧峰 烏日 豐原 后里 石岡 東勢 和平 新社 潭子 大雅 神岡 大肚 沙鹿 龍井 梧棲 清水 大甲 外埔 大安',
+  '彰化縣':'彰化市 員林市 鹿港鎮 和美鎮 北斗鎮 溪湖鎮 田中鎮 二林鎮 線西鄉 伸港鄉 福興鄉 秀水鄉 花壇鄉 芬園鄉 大村鄉 埔鹽鄉 埔心鄉 永靖鄉 社頭鄉 二水鄉 田尾鄉 埤頭鄉 芳苑鄉 大城鄉 竹塘鄉 溪州鄉',
+  '南投縣':'南投市 埔里鎮 草屯鎮 竹山鎮 集集鎮 名間鄉 鹿谷鄉 中寮鄉 魚池鄉 國姓鄉 水里鄉 信義鄉 仁愛鄉',
+  '雲林縣':'斗六市 斗南鎮 虎尾鎮 西螺鎮 土庫鎮 北港鎮 古坑鄉 大埤鄉 莿桐鄉 林內鄉 二崙鄉 崙背鄉 麥寮鄉 東勢鄉 褒忠鄉 臺西鄉 元長鄉 四湖鄉 口湖鄉 水林鄉',
+  '嘉義市':'東區 西區',
+  '嘉義縣':'太保市 朴子市 布袋鎮 大林鎮 民雄鄉 溪口鄉 新港鄉 六腳鄉 東石鄉 義竹鄉 鹿草鄉 水上鄉 中埔鄉 竹崎鄉 梅山鄉 番路鄉 大埔鄉 阿里山鄉',
+  '臺南市':'中西 東 南 北 安平 安南 永康 歸仁 新化 左鎮 玉井 楠西 南化 仁德 關廟 龍崎 官田 麻豆 佳里 西港 七股 將軍 學甲 北門 新營 後壁 白河 東山 六甲 下營 柳營 鹽水 善化 大內 山上 新市 安定',
+  '高雄市':'新興 前金 苓雅 鹽埕 鼓山 旗津 前鎮 三民 楠梓 小港 左營 仁武 大社 岡山 路竹 阿蓮 田寮 燕巢 橋頭 梓官 彌陀 永安 湖內 鳳山 大寮 林園 鳥松 大樹 旗山 美濃 六龜 內門 杉林 甲仙 桃源 那瑪夏 茂林 茄萣',
+  '屏東縣':'屏東市 潮州鎮 東港鎮 恆春鎮 萬丹鄉 長治鄉 麟洛鄉 九如鄉 里港鄉 鹽埔鄉 高樹鄉 萬巒鄉 內埔鄉 竹田鄉 新埤鄉 枋寮鄉 新園鄉 崁頂鄉 林邊鄉 南州鄉 佳冬鄉 琉球鄉 車城鄉 滿州鄉 枋山鄉 三地門鄉 霧臺鄉 瑪家鄉 泰武鄉 來義鄉 春日鄉 獅子鄉 牡丹鄉',
+  '宜蘭縣':'宜蘭市 羅東鎮 蘇澳鎮 頭城鎮 礁溪鄉 壯圍鄉 員山鄉 冬山鄉 五結鄉 三星鄉 大同鄉 南澳鄉',
+  '花蓮縣':'花蓮市 鳳林鎮 玉里鎮 新城鄉 吉安鄉 壽豐鄉 光復鄉 豐濱鄉 瑞穗鄉 富里鄉 秀林鄉 萬榮鄉 卓溪鄉',
+  '臺東縣':'臺東市 成功鎮 關山鎮 卑南鄉 鹿野鄉 池上鄉 東河鄉 長濱鄉 太麻里鄉 大武鄉 綠島鄉 海端鄉 延平鄉 金峰鄉 達仁鄉 蘭嶼鄉',
+  '澎湖縣':'馬公市 湖西鄉 白沙鄉 西嶼鄉 望安鄉 七美鄉',
+  '金門縣':'金城鎮 金湖鎮 金沙鎮 金寧鄉 烈嶼鄉 烏坵鄉',
+  '連江縣':'南竿鄉 北竿鄉 莒光鄉 東引鄉'
+};
+const districtsOf = c => (AREAS[c] || '').split(' ').filter(Boolean)
+  .map(d => /[市鎮鄉區]$/.test(d) ? d : d + '區');
+
+const $ = id => document.getElementById(id);
+const state = { product: '', industries: [], ind: -1, shops: [], next: '', area: '', seq: 0 };
+
+function store(k, v) { try { v === undefined ? v = localStorage.getItem(k) : localStorage.setItem(k, v); } catch (e) { v = null; } return v; }
+
+function chip(text, on, onclick, cls) {
+  const b = document.createElement('button');
+  b.className = 'chip' + (cls ? ' ' + cls : '') + (on ? ' on' : '');
+  b.textContent = text;
+  b.onclick = onclick;
+  return b;
+}
+
+/* ---------- 產品 ---------- */
+function renderProducts() {
+  const box = $('products'); box.innerHTML = '';
+  Object.keys(PRODUCTS).forEach(p => box.appendChild(chip(p, p === state.product, () => pickProduct(p))));
+}
+function pickProduct(p) {
+  p = p.trim(); if (!p) return;
+  state.product = p;
+  state.industries = PRODUCTS[p] || GENERIC(p);
+  $('custom').value = PRODUCTS[p] ? '' : p;
+  renderProducts();
+  $('indStep').classList.remove('hide');
+  pickIndustry(0);
+}
+$('customGo').onclick = () => pickProduct($('custom').value);
+$('custom').onkeydown = e => { if (e.key === 'Enter') pickProduct($('custom').value); };
+
+/* ---------- 地區 ---------- */
+function fillCounty() {
+  const sel = $('county');
+  sel.innerHTML = '<option value="">全台灣</option>' +
+    Object.keys(AREAS).map(c => `<option>${c}</option>`).join('');
+  sel.value = AREAS[store('county')] ? store('county') : '';
+  fillDistrict();
+  const d = store('district');
+  if (districtsOf(sel.value).includes(d)) $('district').value = d;
+}
+function fillDistrict() {
+  const c = $('county').value, sel = $('district');
+  sel.innerHTML = '<option value="">' + (c ? '全部鄉鎮區' : '—') + '</option>' +
+    districtsOf(c).map(d => `<option>${d}</option>`).join('');
+  sel.disabled = !c;
+}
+$('county').onchange = () => { fillDistrict(); store('county', $('county').value); store('district', ''); search(); };
+$('district').onchange = () => { store('district', $('district').value); search(); };
+
+/* ---------- 產業 ---------- */
+function renderIndustries() {
+  const box = $('industries'); box.innerHTML = '';
+  state.industries.forEach((it, i) => box.appendChild(chip(it[0], i === state.ind, () => pickIndustry(i))));
+}
+function pickIndustry(i) { state.ind = i; renderIndustries(); search(); }
+
+/* ---------- 店家 ---------- */
+function search(more) {
+  if (state.ind < 0) return;
+  const seq = ++state.seq;
+  if (!more) { state.shops = []; state.next = ''; state.area = ''; }
+  const county = $('county').value, district = $('district').value;
+  $('out').classList.remove('hide');
+  $('title').innerHTML = esc(state.industries[state.ind][0]) +
+    `<span class="count">${esc(district || county || '全台灣')}</span>`;
+  showMsg('搜尋中…');
+  $('more').classList.add('hide');
+  if (!more) render();
+  google.script.run
+    .withSuccessHandler(r => {
+      if (seq !== state.seq) return;
+      const seen = new Set(state.shops.map(s => s.name + s.address));
+      r.places.forEach(p => { if (!seen.has(p.name + p.address)) state.shops.push(p); });
+      state.next = r.next;
+      hideMsg();
+      render();
+    })
+    .withFailureHandler(e => {
+      if (seq !== state.seq) return;
+      showMsg((e && e.message) || String(e), true);
+    })
+    .searchPlaces(state.industries[state.ind][1], county, district, more ? state.next : '');
+}
+
+function areaOf(addr) {
+  const m = String(addr).replace(/^.*?[縣市]/, '').match(/^(.{1,3}?[市鎮鄉區])/);
+  return m ? m[1] : '其他';
+}
+
+function render() {
+  const showAreas = !$('district').value && $('county').value;
+  const counts = {};
+  state.shops.forEach(s => { const a = areaOf(s.address); counts[a] = (counts[a] || 0) + 1; });
+  const box = $('areas'); box.innerHTML = '';
+  if (showAreas && Object.keys(counts).length > 1) {
+    box.appendChild(chip('全部', !state.area, () => { state.area = ''; render(); }, 'small'));
+    Object.keys(counts).sort((a, b) => counts[b] - counts[a]).forEach(a => {
+      const b = chip(a, state.area === a, () => { state.area = a; render(); }, 'small');
+      b.insertAdjacentHTML('beforeend', `<span class="n">${counts[a]}</span>`);
+      box.appendChild(b);
+    });
+  }
+  const list = shown();
+  $('list').innerHTML = list.map(s => `
+    <div class="shop">
+      <h3>${esc(s.name)}</h3>
+      ${s.rating ? `<div class="meta"><span class="star">★ ${s.rating.toFixed(1)}</span>　${s.reviews} 則評論</div>` : ''}
+      <p>📍 <a href="${attr(s.url || 'https://www.google.com/maps/search/' + encodeURIComponent(s.name + ' ' + s.address))}">${esc(s.address)}</a></p>
+      ${s.phone ? `<p>📞 <a href="tel:${attr(s.phone.replace(/[^\d+]/g, ''))}">${esc(s.phone)}</a></p>` : ''}
+      ${s.website ? `<p>🔗 <a href="${attr(s.website)}">網站</a></p>` : ''}
+    </div>`).join('');
+  const t = $('title').querySelector('.count');
+  if (t) t.textContent = ($('district').value || $('county').value || '全台灣') + '・' + list.length + ' 家';
+  $('csv').disabled = !list.length;
+  if (state.seq && !list.length && !$('msg').textContent.includes('搜尋中')) showMsg('這個地區找不到這類店家，試試別的產業或放大地區。');
+  else if (list.length) hideMsg();
+  $('more').classList.toggle('hide', !state.next);
+}
+const shown = () => state.shops.filter(s => !state.area || areaOf(s.address) === state.area);
+
+function showMsg(t, err) { const m = $('msg'); m.textContent = t; m.className = 'msg' + (err ? ' err' : ''); }
+function hideMsg() { $('msg').className = 'msg hide'; $('msg').textContent = ''; }
+$('more').onclick = () => search(true);
+
+$('csv').onclick = () => {
+  const rows = [['產品', '產業', '店家名稱', '地址', '電話', '評分', '評論數', '網站', 'Google 地圖']];
+  shown().forEach(s => rows.push([state.product, state.industries[state.ind][0], s.name, s.address, s.phone, s.rating || '', s.reviews || '', s.website, s.url]));
+  const csv = '﻿' + rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `${state.product}-${state.industries[state.ind][0]}-${$('district').value || $('county').value || '全台灣'}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function attr(s) { return /^(https?:|tel:)/.test(s) || /^\+?\d+$/.test(s) ? esc(s) : '#'; }
+
+renderProducts();
+fillCounty();
+</script>
+</body>
+</html>
