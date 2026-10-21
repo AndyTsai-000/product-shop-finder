@@ -1,6 +1,6 @@
 // 產品找店家：共用「狀態」伺服器（Cloudflare Worker＋D1）
-// GET  /status        → 全部店家的狀態 { key: {s, by, t, name, addr, ind, ci, d, phone} }
-// POST /status        → 設定一家店的狀態，s 空字串＝清除
+// GET  /status        → 全部狀態 [{key, p, s, by, t, name, addr, ind, ci, d, phone}]（p＝產品，每個產品各自一筆）
+// POST /status        → 設定一家店在某個產品下的狀態，s 空字串＝清除
 // 不用登入；只接受網站來源的瀏覽器請求，並限制每個 IP 的寫入次數。
 
 const STATUSES = ['call', 'visit', 'no', 'deal'];
@@ -40,17 +40,17 @@ function fail(msg, status = 400) { const e = new Error(msg); e.status = status; 
 const str = (v, n) => String(v ?? '').trim().slice(0, n);
 
 async function list(env) {
-  const { results } = await env.DB.prepare('SELECT key, s, by, t, name, addr, ind, ci, d, phone FROM status').all();
-  const out = {};
-  for (const r of results) { const { key, ...rest } = r; out[key] = rest; }
-  return out;
+  const { results } = await env.DB.prepare('SELECT key, p, s, by, t, name, addr, ind, ci, d, phone FROM status').all();
+  return results;
 }
 
 async function save(req, env) {
   const b = await req.json().catch(() => fail('格式錯誤'));
   const key = str(b.key, 40);
   if (!/^[csnwr]\d{1,20}$/.test(key)) fail('店家代號錯誤');
+  const p = str(b.p, 20);
   const s = str(b.s, 10);
+  if (s && !p) fail('缺少產品');
   if (s && !STATUSES.includes(s)) fail('狀態錯誤');
   const ip = req.headers.get('CF-Connecting-IP') || '';
   const now = Date.now();
@@ -59,14 +59,14 @@ async function save(req, env) {
   const by = str(b.by, 20), name = str(b.name, 100);
   const stmts = [];
   if (s) {
-    stmts.push(env.DB.prepare(`INSERT INTO status (key, s, by, t, name, addr, ind, ci, d, phone) VALUES (?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(key) DO UPDATE SET s=excluded.s, by=excluded.by, t=excluded.t, name=excluded.name, addr=excluded.addr,
+    stmts.push(env.DB.prepare(`INSERT INTO status (key, p, s, by, t, name, addr, ind, ci, d, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(key, p) DO UPDATE SET s=excluded.s, by=excluded.by, t=excluded.t, name=excluded.name, addr=excluded.addr,
       ind=excluded.ind, ci=excluded.ci, d=excluded.d, phone=excluded.phone`)
-      .bind(key, s, by, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30)));
+      .bind(key, p, s, by, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30)));
   } else {
-    stmts.push(env.DB.prepare('DELETE FROM status WHERE key = ?').bind(key));
+    stmts.push(env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ?').bind(key, p));
   }
-  stmts.push(env.DB.prepare('INSERT INTO log (key, s, by, t, name, ip) VALUES (?,?,?,?,?,?)').bind(key, s, by, now, name, ip));
+  stmts.push(env.DB.prepare('INSERT INTO log (key, p, s, by, t, name, ip) VALUES (?,?,?,?,?,?,?)').bind(key, p, s, by, now, name, ip));
   await env.DB.batch(stmts);
   return { ok: true, t: now };
 }

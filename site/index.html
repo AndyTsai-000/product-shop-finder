@@ -368,13 +368,23 @@ async function showList() {
 const API = 'https://product-shop-status.multi-share-api.workers.dev/status';
 const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
 const STATUS_NAME = Object.fromEntries(STATUS);
-let statuses = {}, statusOk = null, tab = 'list';
+let allStatus = [], statuses = {}, statusOk = null, tab = 'list';
+
+/* 目前產品的狀態：key → 紀錄。每個產品各自一筆；改版前的舊紀錄（p 空白）
+   顯示在所有包含該產業的產品下 */
+function statusMap() {
+  const inds = new Set(GROUPS.flatMap(([g]) => parse(PRODUCTS[product][g]).map(i => i.name)));
+  const map = {};
+  for (const r of allStatus) if (!r.p && inds.has(r.ind)) map[r.key] = r;
+  for (const r of allStatus) if (r.p === product) map[r.key] = r;
+  return map;
+}
 
 async function loadStatuses() {
   try {
     const r = await fetch(API, { cache: 'no-store' });
     if (!r.ok) throw new Error(r.status);
-    statuses = await r.json();
+    allStatus = await r.json();
     statusOk = true;
   } catch (e) {
     if (statusOk === null) statusOk = false;
@@ -388,25 +398,27 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) load
 $('who').value = load('who') || '';
 $('who').onchange = () => save('who', $('who').value.trim());
 
+async function post(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+}
 async function setStatus(item, s) {
   const prev = statuses[item.key];
   const next = s === (prev && prev.s) ? '' : s;
   const by = $('who').value.trim();
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
-  if (next) statuses[item.key] = { s: next, by, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
-  else delete statuses[item.key];
+  const rec = { key: item.key, p: product, s: next, by, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
+  // 先在畫面上更新，再送到伺服器
+  allStatus = allStatus.filter(r => !(r.key === item.key && (r.p === product || (prev && r.p === prev.p))));
+  if (next) allStatus.push(rec);
   render();
   try {
-    const r = await fetch(API, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: item.key, s: next, by, name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone })
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || r.status);
+    if (prev && prev.p !== product) await post({ key: item.key, p: prev.p, s: '' });  // 舊紀錄改成這個產品的
+    await post(rec);
   } catch (e) {
-    if (prev) statuses[item.key] = prev; else delete statuses[item.key];
-    render();
     flash('狀態沒有存成功（' + e.message + '），請再試一次。');
+    await loadStatuses();
   }
 }
 function flash(msg) {
@@ -423,12 +435,13 @@ const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v
 
 function render() {
   if (!current) return;
+  statuses = statusMap();
   const county = $('county').value, district = $('district').value;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
   const inRoad = (addr, d) => !road || roadOf(addr, county, d) === road;
   // 名單分頁：目前產業、還沒有狀態的店家
   const listItems = areaRows.filter(r => !statuses[r[6]] && inRoad(r[3], r[2])).map(itemOfRow);
-  // 狀態分頁：所有產業裡、在所選地區的已標記店家（新標記的在前）
+  // 狀態分頁：這個產品所有產業裡、在所選地區的已標記店家（新標記的在前）
   const marked = Object.entries(statuses)
     .filter(([, v]) => (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
     .sort((a, b) => b[1].t - a[1].t);
@@ -458,7 +471,7 @@ function render() {
   title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
   const sub = document.createElement('span');
   view = tab === 'list' ? listItems : byStatus[tab];
-  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（所有產業）');
+  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（「' + product + '」所有產業）');
   title.appendChild(sub);
 
   const box = $('shops'); box.innerHTML = '';
