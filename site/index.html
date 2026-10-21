@@ -82,16 +82,12 @@ select{flex:1 1 140px;max-width:220px}
 <div class="wrap">
   <header>
     <h1>產品找店家</h1>
-    <p class="lead">選產品和地區，列出跟這個產品有關聯的產業：同業、上游、合作夥伴、潛在客戶。點產業就列出這一區的店家名單。</p>
+    <p class="lead">開發客戶用：選產品和地區，列出可以合作的夥伴和會用到這個產品的潛在客戶，點產業就列出這一區的店家名單。</p>
   </header>
 
   <section class="step">
     <div class="label">產品</div>
     <div class="chips" id="products"></div>
-    <div class="row">
-      <input id="custom" placeholder="其他產品，例如：咖啡豆" aria-label="其他產品">
-      <button class="btn" id="customGo">查詢</button>
-    </div>
   </section>
 
   <section class="step">
@@ -121,8 +117,6 @@ select{flex:1 1 140px;max-width:220px}
 <script>
 /* 產品 → 依關係分類的相關產業。用「、」分隔，「名稱=搜尋字」可指定送去 Google 地圖的字 */
 const GROUPS = [
-  ['same', '同業・通路', '賣這個產品的店'],
-  ['up', '上游・材料', '工廠、原料、耗材'],
   ['partner', '合作夥伴', '可以互相介紹客人、一起接案'],
   ['client', '潛在客戶', '會用到這個產品，可以去推銷']
 ];
@@ -158,11 +152,6 @@ const PRODUCTS = {
     client: '健身房、拳擊館、運動中心、瘦身美容、長照中心、月子中心、跑步・運動社團=路跑 運動俱樂部'
   }
 };
-/* 其他產品用的通用產業 */
-const GENERIC = p => ({
-  same: `${p}專賣店=${p}、${p}批發=${p} 批發、${p}維修=${p} 維修`,
-  up: `${p}工廠=${p} 工廠、${p}原料=${p} 原料、${p}貿易商=${p} 貿易`
-});
 const parse = s => (s || '').split('、').filter(Boolean).map(w => {
   const [name, q] = w.split('=');
   return { name, q: q || name };
@@ -215,15 +204,12 @@ function renderProducts() {
 function pickProduct(p) {
   p = p.trim(); if (!p) return;
   product = p;
-  $('custom').value = PRODUCTS[p] ? '' : p;
   save('product', p);
   current = '';
   $('result').hidden = true;
   renderProducts();
   renderIndustries();
 }
-$('customGo').onclick = () => pickProduct($('custom').value);
-$('custom').onkeydown = e => { if (e.key === 'Enter') pickProduct($('custom').value); };
 
 function fillCounty() {
   const sel = $('county');
@@ -265,7 +251,7 @@ const mapUrl = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeU
 function renderIndustries() {
   const area = $('county').value + $('district').value;
   $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
-  const table = PRODUCTS[product] || GENERIC(product);
+  const table = PRODUCTS[product];
   const box = $('industries'); box.innerHTML = '';
   GROUPS.forEach(([key, title, note]) => {
     const items = parse(table[key]);
@@ -291,9 +277,6 @@ function renderIndustries() {
     g.append(h, links);
     box.appendChild(g);
   });
-  if (!PRODUCTS[product]) {
-    box.insertAdjacentHTML('beforeend', '<p class="hint">這個產品還沒有整理合作夥伴和潛在客戶，先列出通用的產業；點了會在 Google 地圖找。</p>');
-  }
 }
 let currentQ = '';
 
@@ -369,7 +352,7 @@ function more() {
 $('more').onclick = more;
 
 const saved = load('product');
-if (saved) { product = saved; if (!PRODUCTS[saved]) $('custom').value = saved; }
+if (PRODUCTS[saved]) product = saved;
 renderProducts();
 fillCounty();
 renderIndustries();
