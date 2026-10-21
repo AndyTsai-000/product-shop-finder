@@ -12,7 +12,8 @@
 //   GET  /admin/users                       → 使用者名單
 //   POST /admin/users     {oldId?, id, name, role} → 新增（沒有 oldId）或修改（可改編號、姓名、權限）
 //   POST /admin/users/delete {id}           → 刪除使用者
-//   GET  /admin/log?before=<id>             → 修改紀錄（新到舊，每次 200 筆）
+//   GET  /admin/log?since=<毫秒>&before=<id> → 修改紀錄（新到舊，每次 200 筆；since 起算時間，0＝全部）
+//   POST /admin/log/clear {since}            → 清除 since 之後的紀錄（0＝全部），回傳刪掉幾筆
 //
 // 機密設定（wrangler secret put）：ADMIN_PASSWORD、SESSION_SECRET
 
@@ -51,6 +52,7 @@ async function route(req, env, url) {
     if (p === '/admin/users' && m === 'POST') return saveUser(req, env);
     if (p === '/admin/users/delete' && m === 'POST') return deleteUser(req, env);
     if (p === '/admin/log' && m === 'GET') return listLog(env, url);
+    if (p === '/admin/log/clear' && m === 'POST') return clearLog(req, env);
   }
   fail('not found', 404);
 }
@@ -246,9 +248,16 @@ async function deleteUser(req, env) {
 }
 
 async function listLog(env, url) {
-  const before = parseInt(url.searchParams.get('before') || '0', 10);
-  const q = before > 0
-    ? env.DB.prepare('SELECT id, key, p, s, by, uid, t, name FROM log WHERE id < ? ORDER BY id DESC LIMIT 200').bind(before)
-    : env.DB.prepare('SELECT id, key, p, s, by, uid, t, name FROM log ORDER BY id DESC LIMIT 200');
-  return (await q.all()).results;
+  const before = parseInt(url.searchParams.get('before') || '0', 10) || 2 ** 52;
+  const since = parseInt(url.searchParams.get('since') || '0', 10) || 0;
+  const { results } = await env.DB.prepare('SELECT id, key, p, s, by, uid, t, name FROM log WHERE id < ? AND t >= ? ORDER BY id DESC LIMIT 200')
+    .bind(before, since).all();
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM log WHERE t >= ?').bind(since).first();
+  return { items: results, total: n };
+}
+
+async function clearLog(req, env) {
+  const since = parseInt((await body(req)).since, 10) || 0;
+  const r = await env.DB.prepare('DELETE FROM log WHERE t >= ?').bind(since).run();
+  return { ok: true, deleted: r.meta.changes };
 }

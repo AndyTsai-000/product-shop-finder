@@ -60,6 +60,9 @@ input{flex:1 1 180px}
 .num{font-variant-numeric:tabular-nums}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
 .more{align-self:center}
+.rng{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:4px 14px;cursor:pointer}
+.rng.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.rng:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .edit{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .edit input{flex:0 1 120px;padding:5px 8px;font-size:14px}
 .edit input.nm{flex:1 1 120px}
@@ -114,6 +117,11 @@ input{flex:1 1 180px}
 
     <section class="card" id="tab-log" hidden>
       <p class="hint">每一次標記、修改、取消都會留下紀錄（新的在前）。</p>
+      <div class="row" id="logRange" role="group" aria-label="時間範圍"></div>
+      <div class="row" style="justify-content:space-between">
+        <p class="hint" id="logSum"></p>
+        <button class="btn danger" id="logClear">清除紀錄</button>
+      </div>
       <div class="list" id="logList"></div>
       <button class="btn more" id="logMore" hidden>載入更早的紀錄</button>
     </section>
@@ -283,12 +291,60 @@ $('userForm').onsubmit = async e => {
 };
 
 /* ---------- 修改紀錄 ---------- */
-let lastId = 0;
+const RANGES = [['today', '今天'], ['3d', '3 天內'], ['7d', '一週內'], ['30d', '一個月內'], ['all', '全部']];
+let lastId = 0, range = 'today';
+/* 範圍的起算時間（毫秒）；「今天」從本機今天 0 點算，其他往前推 N 天 */
+function sinceOf(r) {
+  if (r === 'all') return 0;
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (r === 'today') return d.getTime();
+  return Date.now() - parseInt(r, 10) * 864e5;
+}
+const rangeName = () => Object.fromEntries(RANGES)[range];
+RANGES.forEach(([k, n]) => {
+  const b = el('button', 'rng' + (k === range ? ' on' : ''), n);
+  b.setAttribute('aria-pressed', String(k === range));
+  b.onclick = () => {
+    range = k;
+    document.querySelectorAll('.rng').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
+    resetClear();
+    loadLog(false);
+  };
+  $('logRange').appendChild(b);
+});
+
+const clearBtn = $('logClear');
+let clearTimer = 0;
+function resetClear() { clearTimeout(clearTimer); clearBtn.classList.remove('sure'); clearBtn.textContent = '清除' + (range === 'all' ? '全部' : rangeName() + '的') + '紀錄'; }
+clearBtn.onclick = async () => {
+  if (!clearBtn.classList.contains('sure')) {
+    clearBtn.classList.add('sure');
+    clearBtn.textContent = '確定清除？無法復原';
+    clearTimer = setTimeout(resetClear, 5000);
+    return;
+  }
+  clearTimeout(clearTimer);
+  clearBtn.disabled = true;
+  try {
+    const r = await api('/admin/log/clear', { since: sinceOf(range) });
+    showMsg('');
+    resetClear();
+    await loadLog(false);
+    $('logSum').textContent = `已清除 ${r.deleted} 筆紀錄。`;
+  } catch (e) { showMsg('沒有清除成功：' + e.message); resetClear(); }
+  finally { clearBtn.disabled = false; }
+};
+resetClear();
+
 async function loadLog(more) {
-  let rows;
-  try { rows = await api('/admin/log' + (more && lastId ? '?before=' + lastId : '')); } catch (e) { showMsg(e.message); return; }
+  let res;
+  const q = '?since=' + sinceOf(range) + (more && lastId ? '&before=' + lastId : '');
+  try { res = await api('/admin/log' + q); } catch (e) { showMsg(e.message); return; }
+  const rows = res.items;
+  $('logSum').textContent = `${rangeName()}共 ${res.total} 筆紀錄`;
+  clearBtn.hidden = !res.total;
   const box = $('logList');
-  if (!more) box.innerHTML = rows.length ? '' : '<div class="empty">還沒有紀錄。</div>';
+  if (!more) box.innerHTML = rows.length ? '' : `<div class="empty">${rangeName()}沒有紀錄。</div>`;
   for (const r of rows) {
     const it = el('div', 'item');
     it.append(el('b', '', r.name || r.key), el('span', 'pill s-' + (r.s || ''), r.s ? SNAME[r.s] : '取消'));
