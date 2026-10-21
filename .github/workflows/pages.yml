@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir _site
           cp -r site/data _site/data
+          cp site/admin.html _site/admin.html
           { printf '<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>\n'; cat site/index.html; printf '\n</body></html>\n'; } > _site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

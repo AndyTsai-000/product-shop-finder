@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>產品找店家後台</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 後台：上方分頁（狀態／使用者／修改紀錄），內容是一欄卡片列表，手機也能用 */
+:root{
+  --bg:#f3f5f4; --card:#ffffff; --ink:#18201d; --sub:#5d6964; --line:#dbe1de;
+  --accent:#1d6b57; --accent-ink:#ffffff; --accent-soft:#e1efe9; --warn:#b3402e;
+  --s-call:#2f6fb0; --s-visit:#8a5cb8; --s-no:#7a7f7c; --s-deal:#1f8a4c;
+  --font:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
+    --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; --warn:#ef8a75;
+    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
+.wrap{max-width:860px;margin:0 auto;padding-block:24px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+h1 a{color:inherit;text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+input{flex:1 1 180px}
+.btn{font:inherit;font-size:14px;border:1px solid var(--accent);border-radius:8px;padding:6px 14px;background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap}
+.btn.solid{background:var(--accent);color:var(--accent-ink)}
+.btn.danger{border-color:var(--warn);color:var(--warn)}
+.btn.danger.sure{background:var(--warn);color:var(--accent-ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.err{color:var(--warn);font-size:14px;margin:0;min-height:1.2em}
+.hint{color:var(--sub);font-size:13px;margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{font:inherit;background:none;border:0;border-bottom:2px solid transparent;color:var(--sub);padding:8px 12px;cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.list{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item b{font-weight:500;min-width:0;word-break:break-word}
+.meta{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
+.ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+.pill{font-size:12px;border-radius:999px;padding:1px 10px;color:var(--accent-ink);background:var(--st,var(--sub));align-self:start;white-space:nowrap}
+.s-call{--st:var(--s-call)} .s-visit{--st:var(--s-visit)} .s-no{--st:var(--s-no)} .s-deal{--st:var(--s-deal)} .s-{--st:var(--warn)}
+.off b{color:var(--sub);text-decoration:line-through}
+.num{font-variant-numeric:tabular-nums}
+.empty{color:var(--sub);font-size:14px;padding:8px 0}
+.more{align-self:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><a href="./">產品找店家</a>・後台</h1>
+    <button class="btn" id="logoutBtn" hidden>登出後台</button>
+  </header>
+
+  <section class="card" id="gate" hidden>
+    <h2 style="font-size:18px;margin:0">管理員登入</h2>
+    <form class="row" id="loginForm">
+      <input type="password" id="pw" placeholder="後台密碼" autocomplete="current-password" aria-label="後台密碼">
+      <button class="btn solid" id="loginBtn">登入</button>
+    </form>
+    <p class="err" id="loginErr" role="alert"></p>
+  </section>
+
+  <main id="app" hidden style="display:flex;flex-direction:column;gap:14px">
+    <nav class="tabs" role="tablist">
+      <button class="tab on" data-tab="status" role="tab">狀態</button>
+      <button class="tab" data-tab="users" role="tab">使用者</button>
+      <button class="tab" data-tab="log" role="tab">修改紀錄</button>
+    </nav>
+    <p class="err" id="msg" role="alert"></p>
+
+    <section class="card" id="tab-status">
+      <div class="row">
+        <select id="fProd" aria-label="產品"></select>
+        <select id="fStatus" aria-label="狀態"></select>
+        <input id="fText" placeholder="搜尋店家、地址、標記人" aria-label="搜尋">
+      </div>
+      <p class="hint" id="statusSum"></p>
+      <div class="list" id="statusList"></div>
+      <button class="btn more" id="statusMore" hidden>顯示更多</button>
+    </section>
+
+    <section class="card" id="tab-users" hidden>
+      <form class="row" id="userForm">
+        <input id="newUser" placeholder="新增使用者名字（同事登入時輸入的名字）" maxlength="20" aria-label="新增使用者名字">
+        <button class="btn solid">新增</button>
+      </form>
+      <p class="hint">使用者只要輸入名單上的名字就能登入。停用後，那個人會立刻被登出、不能再標記；他之前標記的狀態會保留。</p>
+      <div class="list" id="userList"></div>
+    </section>
+
+    <section class="card" id="tab-log" hidden>
+      <p class="hint">每一次標記、修改、取消都會留下紀錄（新的在前）。</p>
+      <div class="list" id="logList"></div>
+      <button class="btn more" id="logMore" hidden>載入更早的紀錄</button>
+    </section>
+  </main>
+</div>
+
+<script>
+const SERVER = 'https://product-shop-status.multi-share-api.workers.dev';
+const PRODUCTS = ['家具', '窗簾', '空氣清淨機', '淨水器', '蛋白粉'];
+const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
+const SNAME = Object.fromEntries(STATUS);
+const COUNTIES = '臺北市 新北市 桃園市 臺中市 臺南市 高雄市 基隆市 新竹市 嘉義市 新竹縣 苗栗縣 彰化縣 南投縣 雲林縣 嘉義縣 屏東縣 宜蘭縣 花蓮縣 臺東縣 澎湖縣 金門縣 連江縣'.split(' ');
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = t => { const d = new Date(t); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function load(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+let token = load('adminTok');
+
+async function api(path, body) {
+  const opt = { headers: { Authorization: 'Bearer ' + token } };
+  if (body) { opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(SERVER + path, opt); } catch (e) { throw new Error('連不上伺服器，請檢查網路。'); }
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { logout('登入已失效，請重新登入。'); throw new Error(j.error || '請重新登入'); }
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+const showMsg = t => { $('msg').textContent = t || ''; };
+
+/* ---------- 登入 ---------- */
+function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; $('logoutBtn').hidden = !on; if (!on) setTimeout(() => $('pw').focus(), 0); }
+function logout(msg) { token = ''; save('adminTok', ''); $('loginErr').textContent = msg || ''; showApp(false); }
+$('logoutBtn').onclick = () => logout('');
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  $('loginBtn').disabled = true; $('loginErr').textContent = '';
+  try {
+    const r = await fetch(SERVER + '/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('pw').value }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    token = j.token; save('adminTok', token); $('pw').value = '';
+    start();
+  } catch (err) {
+    $('loginErr').textContent = err.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路。' : err.message;
+  } finally { $('loginBtn').disabled = false; }
+};
+
+/* ---------- 分頁 ---------- */
+let tab = 'status';
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
+  ['status', 'users', 'log'].forEach(t => $('tab-' + t).hidden = t !== tab);
+  showMsg('');
+  ({ status: loadStatus, users: loadUsers, log: () => loadLog(false) })[tab]();
+});
+
+/* ---------- 狀態 ---------- */
+let statuses = [], shown = 0, filtered = [];
+$('fStatus').innerHTML = '<option value="">全部狀態</option>' + STATUS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+['fProd', 'fStatus'].forEach(id => $(id).onchange = renderStatus);
+$('fText').oninput = renderStatus;
+
+async function loadStatus() {
+  try { statuses = await api('/admin/status'); } catch (e) { showMsg(e.message); return; }
+  const prods = [...new Set([...PRODUCTS, ...statuses.map(s => s.p).filter(Boolean)])];
+  const cur = $('fProd').value;
+  $('fProd').innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${p}</option>`).join('') +
+    (statuses.some(s => !s.p) ? '<option value="(舊)">改版前的舊紀錄</option>' : '');
+  $('fProd').value = cur;
+  renderStatus();
+}
+
+function renderStatus() {
+  const p = $('fProd').value, s = $('fStatus').value, q = $('fText').value.trim();
+  filtered = statuses.filter(r => (!p || (p === '(舊)' ? !r.p : r.p === p)) && (!s || r.s === s) &&
+    (!q || [r.name, r.addr, r.by, r.ind].some(v => (v || '').includes(q)))).sort((a, b) => b.t - a.t);
+  const counts = STATUS.map(([k, n]) => `${n} ${filtered.filter(r => r.s === k).length}`).join('・');
+  $('statusSum').textContent = `共 ${filtered.length} 家（${counts}）`;
+  $('statusList').innerHTML = filtered.length ? '' : '<div class="empty">沒有符合的狀態。</div>';
+  shown = 0;
+  moreStatus();
+}
+function moreStatus() {
+  const end = Math.min(filtered.length, shown + 100);
+  for (const r of filtered.slice(shown, end)) $('statusList').appendChild(statusItem(r));
+  shown = end;
+  $('statusMore').hidden = shown >= filtered.length;
+}
+$('statusMore').onclick = moreStatus;
+
+function statusItem(r) {
+  const it = el('div', 'item');
+  it.append(el('b', '', r.name), el('span', 'pill s-' + r.s, SNAME[r.s] || r.s));
+  it.append(el('div', 'meta', `${r.p || '（舊紀錄）'}・${r.ind || ''}・${r.addr || (COUNTIES[r.ci] || '') + (r.d || '')}`));
+  it.append(el('div', 'meta', `${r.by || '（沒有名字）'} 標記・${fmt(r.t)}`));
+  const ctl = el('div', 'ctl');
+  const sel = el('select');
+  sel.setAttribute('aria-label', '修改狀態');
+  sel.innerHTML = STATUS.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+  sel.value = r.s;
+  sel.onchange = () => change(r, sel.value, sel);
+  const cancel = el('button', 'btn danger', '取消狀態');
+  cancel.onclick = () => change(r, '', cancel);
+  ctl.append(sel, cancel);
+  it.append(ctl);
+  return it;
+}
+
+async function change(r, s, ctrl) {
+  ctrl.disabled = true; showMsg('');
+  try {
+    await api('/admin/status', { key: r.key, p: r.p || '', s });
+    if (s) { r.s = s; r.by = '管理員'; r.t = Date.now(); }
+    else statuses = statuses.filter(x => x !== r);
+    renderStatus();
+  } catch (e) { showMsg('沒有改成功：' + e.message); ctrl.disabled = false; }
+}
+
+/* ---------- 使用者 ---------- */
+async function loadUsers() {
+  let users;
+  try { users = await api('/admin/users'); } catch (e) { showMsg(e.message); return; }
+  const box = $('userList'); box.innerHTML = users.length ? '' : '<div class="empty">還沒有使用者。在上面輸入名字新增，同事就能用這個名字登入。</div>';
+  for (const u of users) {
+    const it = el('div', 'item' + (u.active ? '' : ' off'));
+    it.append(el('b', '', u.name), el('span', 'pill', u.active ? '使用中' : '已停用'));
+    it.style.setProperty('--st', u.active ? 'var(--accent)' : 'var(--sub)');
+    it.append(el('div', 'meta num', `目前標記 ${u.marks} 家・最後登入 ${u.last ? fmt(u.last) : '還沒登入過'}`));
+    const ctl = el('div', 'ctl');
+    const tog = el('button', 'btn', u.active ? '停用' : '重新啟用');
+    tog.onclick = async () => { tog.disabled = true; try { await api('/admin/users', { name: u.name, active: !u.active }); loadUsers(); } catch (e) { showMsg(e.message); tog.disabled = false; } };
+    const del = el('button', 'btn danger', '刪除');
+    del.onclick = async () => {
+      if (!del.classList.contains('sure')) { del.classList.add('sure'); del.textContent = '確定刪除？'; setTimeout(() => { del.classList.remove('sure'); del.textContent = '刪除'; }, 4000); return; }
+      del.disabled = true;
+      try { await api('/admin/users/delete', { name: u.name }); loadUsers(); } catch (e) { showMsg(e.message); del.disabled = false; }
+    };
+    ctl.append(tog, del);
+    it.append(ctl);
+    box.appendChild(it);
+  }
+}
+$('userForm').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('newUser').value.trim();
+  if (!name) return;
+  try { await api('/admin/users', { name, active: true }); $('newUser').value = ''; showMsg(''); loadUsers(); }
+  catch (err) { showMsg(err.message); }
+};
+
+/* ---------- 修改紀錄 ---------- */
+let lastId = 0;
+async function loadLog(more) {
+  let rows;
+  try { rows = await api('/admin/log' + (more && lastId ? '?before=' + lastId : '')); } catch (e) { showMsg(e.message); return; }
+  const box = $('logList');
+  if (!more) box.innerHTML = rows.length ? '' : '<div class="empty">還沒有紀錄。</div>';
+  for (const r of rows) {
+    const it = el('div', 'item');
+    it.append(el('b', '', r.name || r.key), el('span', 'pill s-' + (r.s || ''), r.s ? SNAME[r.s] : '取消'));
+    it.append(el('div', 'meta', `${fmt(r.t)}・${r.by || '（沒有名字）'}・${r.p || '（舊紀錄）'}`));
+    box.appendChild(it);
+  }
+  if (rows.length) lastId = rows[rows.length - 1].id;
+  $('logMore').hidden = rows.length < 200;
+}
+$('logMore').onclick = () => loadLog(true);
+
+function start() { showApp(true); loadStatus(); }
+if (token) start(); else showApp(false);
+</script>
+</body>
+</html>

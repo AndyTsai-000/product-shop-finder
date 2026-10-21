@@ -9,7 +9,7 @@
   --bg:#f3f5f4; --card:#ffffff; --ink:#18201d; --sub:#5d6964; --line:#dbe1de;
   --accent:#1d6b57; --accent-ink:#ffffff; --accent-soft:#e1efe9;
   --t-same:#1d6b57; --t-up:#8a6a2c; --t-partner:#3a5f9e; --t-client:#a24a5a;
-  --s-call:#2f6fb0; --s-visit:#8a5cb8; --s-no:#7a7f7c; --s-deal:#1f8a4c;
+  --s-call:#2f6fb0; --s-visit:#8a5cb8; --s-no:#7a7f7c; --s-deal:#1f8a4c; --warn:#b3402e;
   --font:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
 }
 @media (prefers-color-scheme:dark){
@@ -17,14 +17,14 @@
     --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
     --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
     --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
-    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a;
+    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a; --warn:#ef8a75;
   }
 }
 :root[data-theme="dark"]{
   --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
   --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
     --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
-    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a;
+    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a; --warn:#ef8a75;
 }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
@@ -84,9 +84,18 @@ select{flex:1 1 140px;max-width:220px}
 .tab{font:inherit;font-size:14px;background:none;border:0;border-bottom:2px solid transparent;color:var(--sub);padding:8px 10px;cursor:pointer;white-space:nowrap}
 .tab .n{font-size:12px;margin-left:4px;font-variant-numeric:tabular-nums}
 .tab.on{color:var(--ink);border-bottom-color:var(--st, var(--accent));font-weight:700}
-.tab:focus-visible,.st:focus-visible,#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
-.who input{flex:1 1 160px;max-width:260px;padding:5px 9px;font-size:14px}
+.tab:focus-visible,.st:focus-visible,.user .btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.user{position:relative;flex:none}
+.user .btn{padding:6px 12px;font-size:14px}
+.menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;display:flex;flex-direction:column;gap:8px;min-width:150px;box-shadow:0 6px 20px rgb(0 0 0 / .15);font-size:14px}
+.btn.solid{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.6;cursor:default}
+.gate h2{font-size:18px;margin:0}
+.err{color:var(--warn);font-size:14px;margin:0;min-height:1.2em}
+.app{display:flex;flex-direction:column;gap:14px}
+.st.cancel{--st:var(--warn);border-style:dashed}
 .sts{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}
 .st{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:2px 10px;cursor:pointer}
 .st:hover{border-color:var(--st)}
@@ -97,11 +106,31 @@ select{flex:1 1 140px;max-width:220px}
 </style>
 
 <div class="wrap">
-  <header>
-    <h1>產品找店家</h1>
-    <p class="lead">開發客戶用：選產品和地區，列出可以合作的夥伴和會用到這個產品的潛在客戶，點產業就列出這一區的店家名單。</p>
+  <header class="top">
+    <div>
+      <h1>產品找店家</h1>
+      <p class="lead">開發客戶用：選產品和地區，列出可以合作的夥伴和會用到這個產品的潛在客戶，點產業就列出這一區的店家名單。</p>
+    </div>
+    <div class="user">
+      <button class="btn" id="userBtn" hidden aria-haspopup="true" aria-expanded="false"></button>
+      <div class="menu" id="userMenu" hidden>
+        <span id="userName"></span>
+        <button class="btn" id="logout">登出</button>
+      </div>
+    </div>
   </header>
 
+  <section class="step gate" id="gate" hidden>
+    <h2>請先登入</h2>
+    <p class="hint">輸入管理員加到名單裡的名字。你標記的狀態會記在這個名字下。</p>
+    <form class="row" id="loginForm">
+      <input id="loginName" placeholder="你的名字" maxlength="20" autocomplete="username" aria-label="名字">
+      <button class="btn solid" id="loginBtn">登入</button>
+    </form>
+    <p class="err" id="loginErr" role="alert"></p>
+  </section>
+
+  <main class="app" id="app" hidden>
   <section class="step">
     <div class="label">產品</div>
     <div class="chips" id="products"></div>
@@ -127,14 +156,11 @@ select{flex:1 1 140px;max-width:220px}
       <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
     </div>
     <div class="tabs" id="tabs" role="tablist"></div>
-    <div class="who" id="whoRow" hidden>
-      <label for="who">標記人</label>
-      <input id="who" placeholder="你的名字（標記狀態時一起記下）" maxlength="20">
-    </div>
     <div class="shops" id="shops"></div>
     <button class="more" id="more" hidden>顯示更多</button>
     <p class="hint" id="source"></p>
   </section>
+  </main>
 </div>
 
 <script>
@@ -380,33 +406,90 @@ function statusMap() {
   return map;
 }
 
-async function loadStatuses() {
+/* ---------- 使用者登入（只用名字；名字要先由管理員在後台加入）---------- */
+const SERVER = API.replace(/\/status$/, '');
+let token = load('tok') || '', me = load('me') || '';
+const authHeaders = () => (token ? { Authorization: 'Bearer ' + token } : {});
+
+function showApp(on) {
+  $('app').hidden = !on;
+  $('gate').hidden = on;
+  $('userBtn').hidden = !(on && me && statusOk);
+  $('userBtn').textContent = '👤 ' + me;
+  $('userName').textContent = '登入身分：' + me;
+  if (!on) setTimeout(() => $('loginName').focus(), 0);
+}
+
+/* 開網頁時：連得到伺服器就要登入；連不到（例如 Claude 網頁版）就只看名單 */
+async function boot() {
+  let r;
+  try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
+  catch (e) { statusOk = false; showApp(true); if (current) render(); return; }
+  if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
+  if (r.ok) { allStatus = await r.json(); statusOk = true; showApp(true); if (current) render(); }
+}
+
+function logout(msg) {
+  token = ''; me = '';
+  save('tok', ''); save('me', '');
+  statusOk = null; allStatus = [];
+  $('userMenu').hidden = true;
+  $('loginErr').textContent = msg || '';
+  showApp(false);
+}
+
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('loginName').value.trim();
+  if (!name) { $('loginErr').textContent = '請輸入名字。'; return; }
+  $('loginBtn').disabled = true;
+  $('loginErr').textContent = '';
   try {
-    const r = await fetch(API, { cache: 'no-store' });
+    const r = await fetch(SERVER + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    token = j.token; me = j.name;
+    save('tok', token); save('me', me);
+    await boot();
+  } catch (err) {
+    $('loginErr').textContent = err.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路。' : err.message;
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+};
+$('userBtn').onclick = () => {
+  const open = $('userMenu').hidden;
+  $('userMenu').hidden = !open;
+  $('userBtn').setAttribute('aria-expanded', String(open));
+};
+$('logout').onclick = () => logout('');
+document.addEventListener('click', e => { if (!e.target.closest('.user')) $('userMenu').hidden = true; });
+
+async function loadStatuses() {
+  if (!token || statusOk === false) return;
+  try {
+    const r = await fetch(API, { cache: 'no-store', headers: authHeaders() });
+    if (r.status === 401) { logout('登入已失效，請重新登入。'); return; }
     if (!r.ok) throw new Error(r.status);
     allStatus = await r.json();
-    statusOk = true;
-  } catch (e) {
-    if (statusOk === null) statusOk = false;
-  }
+  } catch (e) { /* 暫時連不上就沿用舊資料，下次再抓 */ }
   if (current) render();
 }
-loadStatuses();
 setInterval(() => { if (!document.hidden) loadStatuses(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStatuses(); });
 
-$('who').value = load('who') || '';
-$('who').onchange = () => save('who', $('who').value.trim());
-
 async function post(body) {
-  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) });
   const j = await r.json();
+  if (r.status === 401) { logout(j.error || '請重新登入。'); throw new Error(j.error || '請重新登入'); }
   if (!r.ok) throw new Error(j.error || r.status);
 }
+/* s：call／visit／no／deal，空字串＝取消 */
 async function setStatus(item, s) {
   const prev = statuses[item.key];
-  const next = s === (prev && prev.s) ? '' : s;
-  const by = $('who').value.trim();
+  const next = s;
+  if ((prev ? prev.s : '') === next) return;
+  const by = me;
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
   const rec = { key: item.key, p: product, s: next, by, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
   // 先在畫面上更新，再送到伺服器
@@ -449,7 +532,6 @@ function render() {
 
   const tabs = $('tabs'); tabs.innerHTML = '';
   tabs.hidden = !statusOk;
-  $('whoRow').hidden = !statusOk;
   if (!statusOk) tab = 'list';
   const mk = (id, label, n, cls) => {
     const b = document.createElement('button');
@@ -511,11 +593,17 @@ function card(it) {
       btn.className = 'st s-' + k + (on ? ' on' : '');
       btn.textContent = label;
       btn.setAttribute('aria-pressed', String(on));
-      btn.title = on ? '再按一次取消' : '標記為「' + label + '」';
+      btn.title = on ? '目前的狀態' : '標記為「' + label + '」';
       btn.onclick = () => setStatus(it, k);
       row.appendChild(btn);
     });
     if (cur) {
+      const c = document.createElement('button');
+      c.className = 'st cancel';
+      c.textContent = '取消';
+      c.title = '取消狀態，店家回到名單';
+      c.onclick = () => setStatus(it, '');
+      row.appendChild(c);
       const n = document.createElement('span'); n.className = 'st-note';
       const t = new Date(cur.t);
       n.textContent = (cur.by ? cur.by + '・' : '') + (t.getMonth() + 1) + '/' + t.getDate() + ' 標記';
@@ -542,4 +630,5 @@ renderProducts();
 fillCounty();
 fillRoad(null);
 renderIndustries();
+boot();
 </script>
