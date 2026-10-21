@@ -4,7 +4,7 @@
 //   POST /login           {id, name}        → {token, me}
 //   GET  /status          （要登入）        → {me: {id, name, role}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
 //   POST /status          （要登入）        → 設定一家店在某個產品（p）下的狀態，s 空字串＝取消；標記人＝登入的使用者
-// 權限（role）：lead 主管＝可改所有人的標記／user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入
+// 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
 // 管理員（後台，用「使用者名稱＋密碼」登入；帳號存在 admin 表，第一次用 admin＋ADMIN_PASSWORD）
 //   POST /admin/login     {username, password} → {token, username}
 //   GET  /admin/account                     → {username}
@@ -20,7 +20,7 @@
 // 機密設定（wrangler secret put）：ADMIN_PASSWORD（第一次登入用的初始密碼）、SESSION_SECRET
 
 const STATUSES = ['call', 'visit', 'no', 'deal'];
-const ROLES = ['lead', 'user', 'view', 'off'];
+const ROLES = ['user', 'view', 'off'];
 const MAX_WRITES_PER_HOUR = 600;
 const MAX_FAILED_LOGINS_PER_HOUR = 10;
 const USER_DAYS = 90, ADMIN_DAYS = 7;
@@ -168,7 +168,7 @@ async function saveStatus(req, env, me) {
   if (s && !p) fail('缺少產品');
   // 一般權限只能改自己標的（沒有標記人的舊紀錄大家都能改）
   const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ?').bind(key, p).first();
-  if (cur && cur.uid && cur.uid !== me.id && me.role !== 'lead') fail(`這筆是 ${cur.by} 標記的，只有本人或主管可以修改`, 403);
+  if (cur && cur.uid && cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人或後台可以修改`, 403);
   const ip = ipOf(req), now = Date.now();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM log WHERE ip = ? AND t > ?').bind(ip, now - 3600e3).first();
   if (n >= MAX_WRITES_PER_HOUR) fail('修改太頻繁，請稍後再試', 429);

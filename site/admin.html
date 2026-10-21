@@ -125,7 +125,7 @@ input{flex:1 1 180px}
         <select id="newRole" aria-label="權限"></select>
         <button class="btn solid">新增</button>
       </form>
-      <p class="hint">同事用「使用者編號＋姓名」登入。權限：主管＝可修改所有人的標記；一般＝只能修改自己標的；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。</p>
+      <p class="hint">同事用「使用者編號＋姓名」登入。權限：一般＝可以標記，只能修改自己標的（別人標的只有後台能改）；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。</p>
       <div class="list" id="userList"></div>
     </section>
 
@@ -276,7 +276,7 @@ async function change(r, s, ctrl) {
 }
 
 /* ---------- 使用者 ---------- */
-const ROLES = [['lead', '主管'], ['user', '一般'], ['view', '檢視'], ['off', '停用']];
+const ROLES = [['user', '一般'], ['view', '檢視'], ['off', '停用']];
 const RNAME = Object.fromEntries(ROLES);
 const roleOptions = ROLES.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
 $('newRole').innerHTML = roleOptions;
@@ -288,7 +288,7 @@ async function loadUsers() {
   for (const u of users) {
     const it = el('div', 'item' + (u.role === 'off' ? ' off' : ''));
     it.append(el('b', '', u.id + ' ' + u.name), el('span', 'pill', RNAME[u.role] || u.role));
-    it.style.setProperty('--st', u.role === 'off' ? 'var(--sub)' : u.role === 'lead' ? 'var(--s-visit)' : u.role === 'view' ? 'var(--s-no)' : 'var(--accent)');
+    it.style.setProperty('--st', u.role === 'off' ? 'var(--sub)' : u.role === 'view' ? 'var(--s-no)' : 'var(--accent)');
     it.append(el('div', 'meta num', `目前標記 ${u.marks} 家・最後登入 ${u.last ? fmt(u.last) : '還沒登入過'}`));
     const edit = el('div', 'edit');
     const id = el('input'); id.value = u.id; id.maxLength = 20; id.setAttribute('aria-label', '使用者編號');

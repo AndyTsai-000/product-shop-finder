@@ -19,7 +19,7 @@ CREATE INDEX IF NOT EXISTS log_t ON log(t);
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,                -- 使用者編號（登入用）
   name TEXT NOT NULL,                 -- 姓名（登入用，也顯示在狀態上）
-  role TEXT NOT NULL DEFAULT 'user',  -- lead 主管／user 一般／view 檢視／off 停用
+  role TEXT NOT NULL DEFAULT 'user',  -- user 一般／view 檢視／off 停用
   created INTEGER,
   last INTEGER
 );

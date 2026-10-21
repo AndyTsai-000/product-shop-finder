@@ -410,12 +410,12 @@ function statusMap() {
 
 /* ---------- 使用者登入（編號＋姓名；使用者由管理員在後台新增）---------- */
 const SERVER = API.replace(/\/status$/, '');
-const ROLE_NAME = { lead: '主管（可修改所有人的標記）', user: '一般（可修改自己的標記）', view: '檢視（只能查看）' };
+const ROLE_NAME = { user: '一般（可修改自己的標記）', view: '檢視（只能查看）' };
 let token = load('tok') || '', me = null;
 try { me = JSON.parse(load('me') || 'null'); } catch (e) { me = null; }
 const setMe = m => { me = m; save('me', m ? JSON.stringify(m) : ''); };
-/* 這家店的狀態我能不能改：主管都能改；一般只能改自己標的（沒標記人的舊紀錄也能改）；檢視不能改 */
-const canEdit = cur => !!me && (me.role === 'lead' || (me.role === 'user' && (!cur || !cur.uid || cur.uid === me.id)));
+/* 這家店的狀態我能不能改：一般只能改自己標的（沒標記人的舊紀錄也能改）；檢視不能改；別人標的只有後台能改 */
+const canEdit = cur => !!me && me.role === 'user' && (!cur || !cur.uid || cur.uid === me.id);
 const authHeaders = () => (token ? { Authorization: 'Bearer ' + token } : {});
 
 function showApp(on) {
@@ -499,7 +499,7 @@ async function setStatus(item, s) {
   const prev = statuses[item.key];
   const next = s;
   if ((prev ? prev.s : '') === next) return;
-  if (!canEdit(prev)) { flash(me && me.role === 'view' ? '你的權限只能查看，不能標記。' : `這筆是 ${prev.by} 標記的，只有本人或主管可以修改。`); return; }
+  if (!canEdit(prev)) { flash(me && me.role === 'view' ? '你的權限只能查看，不能標記。' : `這筆是 ${prev.by} 標記的，只有本人或後台可以修改。`); return; }
   const by = me.name, uid = me.id;
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
   const rec = { key: item.key, p: product, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
