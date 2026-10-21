@@ -5,8 +5,10 @@
 //   GET  /status          （要登入）        → {me: {id, name, role}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
 //   POST /status          （要登入）        → 設定一家店在某個產品（p）下的狀態，s 空字串＝取消；標記人＝登入的使用者
 // 權限（role）：lead 主管＝可改所有人的標記／user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入
-// 管理員（後台，用 ADMIN_PASSWORD 登入）
-//   POST /admin/login     {password}        → {token}
+// 管理員（後台，用「使用者名稱＋密碼」登入；帳號存在 admin 表，第一次用 admin＋ADMIN_PASSWORD）
+//   POST /admin/login     {username, password} → {token, username}
+//   GET  /admin/account                     → {username}
+//   POST /admin/account   {current, username, password?} → 改使用者名稱／密碼（要目前的密碼），回新的 {token}
 //   GET  /admin/status                      → 全部狀態
 //   POST /admin/status    {key, p, s}       → 改狀態或取消（s 空字串）
 //   GET  /admin/users                       → 使用者名單
@@ -15,7 +17,7 @@
 //   GET  /admin/log?since=<毫秒>&before=<id> → 修改紀錄（新到舊，每次 200 筆；since 起算時間，0＝全部）
 //   POST /admin/log/clear {since}            → 清除 since 之後的紀錄（0＝全部），回傳刪掉幾筆
 //
-// 機密設定（wrangler secret put）：ADMIN_PASSWORD、SESSION_SECRET
+// 機密設定（wrangler secret put）：ADMIN_PASSWORD（第一次登入用的初始密碼）、SESSION_SECRET
 
 const STATUSES = ['call', 'visit', 'no', 'deal'];
 const ROLES = ['lead', 'user', 'view', 'off'];
@@ -46,6 +48,8 @@ async function route(req, env, url) {
   if (p === '/admin/login' && m === 'POST') return adminLogin(req, env);
   if (p.startsWith('/admin/')) {
     await needAdmin(req, env);
+    if (p === '/admin/account' && m === 'GET') return { username: (await getAdmin(env)).username };
+    if (p === '/admin/account' && m === 'POST') return saveAccount(req, env);
     if (p === '/admin/status' && m === 'GET') return listStatus(env);
     if (p === '/admin/status' && m === 'POST') return adminSetStatus(req, env);
     if (p === '/admin/users' && m === 'GET') return listUsers(env);
@@ -117,6 +121,8 @@ async function needUser(req, env) {
 async function needAdmin(req, env) {
   const t = await readToken(req, env);
   if (!t || t.role !== 'admin') fail('請先登入後台', 401);
+  const a = await env.DB.prepare('SELECT updated FROM admin WHERE id = 1').first();
+  if (!a || a.updated !== t.v) fail('後台帳號或密碼已變更，請重新登入', 401);
 }
 
 async function guardLogin(env, ip) {
@@ -183,16 +189,53 @@ async function saveStatus(req, env, me) {
 
 /* ---------- 管理員 ---------- */
 
+/* 密碼雜湊：PBKDF2-SHA256，10 萬次 */
+async function hashPw(pw, saltHex) {
+  const salt = Uint8Array.from(saltHex.match(/../g), x => parseInt(x, 16));
+  const key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: 100000 }, key, 256);
+  return b64u(bits);
+}
+const newSalt = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+
+/* 後台帳號；還沒設定過就用 admin＋ADMIN_PASSWORD 建立 */
+async function getAdmin(env) {
+  let a = await env.DB.prepare('SELECT username, salt, hash, updated FROM admin WHERE id = 1').first();
+  if (!a) {
+    if (!env.ADMIN_PASSWORD) fail('伺服器尚未設定 ADMIN_PASSWORD', 500);
+    const salt = newSalt();
+    a = { username: 'admin', salt, hash: await hashPw(env.ADMIN_PASSWORD, salt), updated: Date.now() };
+    await env.DB.prepare('INSERT OR IGNORE INTO admin (id, username, salt, hash, updated) VALUES (1,?,?,?,?)').bind(a.username, a.salt, a.hash, a.updated).run();
+    a = await env.DB.prepare('SELECT username, salt, hash, updated FROM admin WHERE id = 1').first();
+  }
+  return a;
+}
+
 async function adminLogin(req, env) {
   const ip = ipOf(req);
   await guardLogin(env, ip);
-  if (!env.ADMIN_PASSWORD) fail('伺服器尚未設定 ADMIN_PASSWORD', 500);
-  const pw = str((await body(req)).password, 100);
-  // 比對雜湊，避免逐字比較洩漏時間差
-  const ok = pw && await hmac(env, 'pw:' + pw) === await hmac(env, 'pw:' + env.ADMIN_PASSWORD);
-  await noteLogin(env, ip, ok, '(後台)');
-  if (!ok) fail('密碼錯誤', 403);
-  return { token: await makeToken(env, { role: 'admin' }, ADMIN_DAYS) };
+  const b = await body(req);
+  const username = str(b.username, 40), pw = str(b.password, 100);
+  if (!username || !pw) fail('請輸入使用者名稱和密碼');
+  const a = await getAdmin(env);
+  const ok = username.toLowerCase() === a.username.toLowerCase() && await hashPw(pw, a.salt) === a.hash;
+  await noteLogin(env, ip, ok, '(後台) ' + username);
+  if (!ok) fail('使用者名稱或密碼錯誤', 403);
+  return { token: await makeToken(env, { role: 'admin', v: a.updated }, ADMIN_DAYS), username: a.username };
+}
+
+async function saveAccount(req, env) {
+  const b = await body(req);
+  const a = await getAdmin(env);
+  if (await hashPw(str(b.current, 100), a.salt) !== a.hash) fail('目前的密碼不正確', 403);
+  const username = str(b.username, 40) || a.username;
+  const pw = str(b.password, 100);
+  if (pw && pw.length < 6) fail('新密碼至少要 6 個字');
+  const salt = pw ? newSalt() : a.salt;
+  const hash = pw ? await hashPw(pw, salt) : a.hash;
+  const updated = Date.now();
+  await env.DB.prepare('UPDATE admin SET username = ?, salt = ?, hash = ?, updated = ? WHERE id = 1').bind(username, salt, hash, updated).run();
+  return { ok: true, username, token: await makeToken(env, { role: 'admin', v: updated }, ADMIN_DAYS) };
 }
 
 async function adminSetStatus(req, env) {

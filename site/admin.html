@@ -79,7 +79,8 @@ input{flex:1 1 180px}
   <section class="card" id="gate" hidden>
     <h2 style="font-size:18px;margin:0">管理員登入</h2>
     <form class="row" id="loginForm">
-      <input type="password" id="pw" placeholder="後台密碼" autocomplete="current-password" aria-label="後台密碼">
+      <input id="un" placeholder="使用者名稱" autocomplete="username" aria-label="使用者名稱" style="flex:0 1 160px">
+      <input type="password" id="pw" placeholder="密碼" autocomplete="current-password" aria-label="密碼">
       <button class="btn solid" id="loginBtn">登入</button>
     </form>
     <p class="err" id="loginErr" role="alert"></p>
@@ -90,6 +91,7 @@ input{flex:1 1 180px}
       <button class="tab on" data-tab="status" role="tab">狀態</button>
       <button class="tab" data-tab="users" role="tab">使用者</button>
       <button class="tab" data-tab="log" role="tab">修改紀錄</button>
+      <button class="tab" data-tab="acct" role="tab">帳號設定</button>
     </nav>
     <p class="err" id="msg" role="alert"></p>
 
@@ -113,6 +115,23 @@ input{flex:1 1 180px}
       </form>
       <p class="hint">同事用「使用者編號＋姓名」登入。權限：主管＝可修改所有人的標記；一般＝只能修改自己標的；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。</p>
       <div class="list" id="userList"></div>
+    </section>
+
+    <section class="card" id="tab-acct" hidden>
+      <h2 style="font-size:17px;margin:0">後台帳號</h2>
+      <p class="hint">目前的使用者名稱：<b id="acctName"></b>。修改後，其他已登入後台的裝置會被登出。</p>
+      <form id="acctForm" style="display:flex;flex-direction:column;gap:8px;max-width:360px">
+        <label class="hint" for="acctUser">新的使用者名稱</label>
+        <input id="acctUser" maxlength="40" autocomplete="username">
+        <label class="hint" for="acctPw">新密碼（不改就留空，至少 6 個字）</label>
+        <input type="password" id="acctPw" maxlength="100" autocomplete="new-password">
+        <label class="hint" for="acctPw2">再輸入一次新密碼</label>
+        <input type="password" id="acctPw2" maxlength="100" autocomplete="new-password">
+        <label class="hint" for="acctCur">目前的密碼（確認是你本人）</label>
+        <input type="password" id="acctCur" maxlength="100" autocomplete="current-password">
+        <button class="btn solid" id="acctSave" style="align-self:flex-start">儲存</button>
+        <p class="err" id="acctMsg" role="status"></p>
+      </form>
     </section>
 
     <section class="card" id="tab-log" hidden>
@@ -155,14 +174,14 @@ async function api(path, body) {
 const showMsg = t => { $('msg').textContent = t || ''; };
 
 /* ---------- 登入 ---------- */
-function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; $('logoutBtn').hidden = !on; if (!on) setTimeout(() => $('pw').focus(), 0); }
+function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; $('logoutBtn').hidden = !on; if (!on) setTimeout(() => ($('un').value ? $('pw') : $('un')).focus(), 0); }
 function logout(msg) { token = ''; save('adminTok', ''); $('loginErr').textContent = msg || ''; showApp(false); }
 $('logoutBtn').onclick = () => logout('');
 $('loginForm').onsubmit = async e => {
   e.preventDefault();
   $('loginBtn').disabled = true; $('loginErr').textContent = '';
   try {
-    const r = await fetch(SERVER + '/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('pw').value }) });
+    const r = await fetch(SERVER + '/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: $('un').value.trim(), password: $('pw').value }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
     token = j.token; save('adminTok', token); $('pw').value = '';
@@ -177,9 +196,9 @@ let tab = 'status';
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   tab = b.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
-  ['status', 'users', 'log'].forEach(t => $('tab-' + t).hidden = t !== tab);
+  ['status', 'users', 'log', 'acct'].forEach(t => $('tab-' + t).hidden = t !== tab);
   showMsg('');
-  ({ status: loadStatus, users: loadUsers, log: () => loadLog(false) })[tab]();
+  ({ status: loadStatus, users: loadUsers, log: () => loadLog(false), acct: loadAcct })[tab]();
 });
 
 /* ---------- 狀態 ---------- */
@@ -355,6 +374,33 @@ async function loadLog(more) {
   $('logMore').hidden = rows.length < 200;
 }
 $('logMore').onclick = () => loadLog(true);
+
+/* ---------- 帳號設定 ---------- */
+async function loadAcct() {
+  $('acctMsg').textContent = '';
+  try { const a = await api('/admin/account'); $('acctName').textContent = a.username; $('acctUser').value = a.username; }
+  catch (e) { showMsg(e.message); }
+}
+$('acctForm').onsubmit = async e => {
+  e.preventDefault();
+  const msg = $('acctMsg'); msg.style.color = '';
+  const username = $('acctUser').value.trim(), pw = $('acctPw').value, pw2 = $('acctPw2').value, cur = $('acctCur').value;
+  if (!username) { msg.textContent = '使用者名稱不能空白。'; return; }
+  if (pw !== pw2) { msg.textContent = '兩次輸入的新密碼不一樣。'; return; }
+  if (pw && pw.length < 6) { msg.textContent = '新密碼至少要 6 個字。'; return; }
+  if (!cur) { msg.textContent = '請輸入目前的密碼。'; return; }
+  $('acctSave').disabled = true;
+  try {
+    const r = await api('/admin/account', { current: cur, username, password: pw });
+    token = r.token; save('adminTok', token);
+    ['acctPw', 'acctPw2', 'acctCur'].forEach(id => $(id).value = '');
+    $('acctName').textContent = r.username;
+    $('un').value = r.username;
+    msg.style.color = 'var(--accent)';
+    msg.textContent = pw ? '已儲存。下次登入請用新的使用者名稱和密碼。' : '已儲存使用者名稱。';
+  } catch (err) { msg.textContent = err.message; }
+  finally { $('acctSave').disabled = false; }
+};
 
 function start() { showApp(true); loadStatus(); }
 if (token) start(); else showApp(false);
