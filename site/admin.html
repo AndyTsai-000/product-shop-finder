@@ -60,6 +60,10 @@ input{flex:1 1 180px}
 .num{font-variant-numeric:tabular-nums}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
 .more{align-self:center}
+.edit{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.edit input{flex:0 1 120px;padding:5px 8px;font-size:14px}
+.edit input.nm{flex:1 1 120px}
+.edit select{padding:5px 8px;font-size:14px}
 </style>
 </head>
 <body>
@@ -99,10 +103,12 @@ input{flex:1 1 180px}
 
     <section class="card" id="tab-users" hidden>
       <form class="row" id="userForm">
-        <input id="newUser" placeholder="新增使用者名字（同事登入時輸入的名字）" maxlength="20" aria-label="新增使用者名字">
+        <input id="newId" placeholder="使用者編號" maxlength="20" aria-label="使用者編號" style="flex:0 1 130px">
+        <input id="newName" placeholder="姓名" maxlength="20" aria-label="姓名" style="flex:1 1 120px">
+        <select id="newRole" aria-label="權限"></select>
         <button class="btn solid">新增</button>
       </form>
-      <p class="hint">使用者只要輸入名單上的名字就能登入。停用後，那個人會立刻被登出、不能再標記；他之前標記的狀態會保留。</p>
+      <p class="hint">同事用「使用者編號＋姓名」登入。權限：主管＝可修改所有人的標記；一般＝只能修改自己標的；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。</p>
       <div class="list" id="userList"></div>
     </section>
 
@@ -206,7 +212,7 @@ function statusItem(r) {
   const it = el('div', 'item');
   it.append(el('b', '', r.name), el('span', 'pill s-' + r.s, SNAME[r.s] || r.s));
   it.append(el('div', 'meta', `${r.p || '（舊紀錄）'}・${r.ind || ''}・${r.addr || (COUNTIES[r.ci] || '') + (r.d || '')}`));
-  it.append(el('div', 'meta', `${r.by || '（沒有名字）'} 標記・${fmt(r.t)}`));
+  it.append(el('div', 'meta', `由 ${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'} 標記・${fmt(r.t)}`));
   const ctl = el('div', 'ctl');
   const sel = el('select');
   sel.setAttribute('aria-label', '修改狀態');
@@ -231,35 +237,49 @@ async function change(r, s, ctrl) {
 }
 
 /* ---------- 使用者 ---------- */
+const ROLES = [['lead', '主管'], ['user', '一般'], ['view', '檢視'], ['off', '停用']];
+const RNAME = Object.fromEntries(ROLES);
+const roleOptions = ROLES.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+$('newRole').innerHTML = roleOptions;
+$('newRole').value = 'user';
 async function loadUsers() {
   let users;
   try { users = await api('/admin/users'); } catch (e) { showMsg(e.message); return; }
-  const box = $('userList'); box.innerHTML = users.length ? '' : '<div class="empty">還沒有使用者。在上面輸入名字新增，同事就能用這個名字登入。</div>';
+  const box = $('userList'); box.innerHTML = users.length ? '' : '<div class="empty">還沒有使用者。在上面輸入編號和姓名新增，同事就能登入。</div>';
   for (const u of users) {
-    const it = el('div', 'item' + (u.active ? '' : ' off'));
-    it.append(el('b', '', u.name), el('span', 'pill', u.active ? '使用中' : '已停用'));
-    it.style.setProperty('--st', u.active ? 'var(--accent)' : 'var(--sub)');
+    const it = el('div', 'item' + (u.role === 'off' ? ' off' : ''));
+    it.append(el('b', '', u.id + ' ' + u.name), el('span', 'pill', RNAME[u.role] || u.role));
+    it.style.setProperty('--st', u.role === 'off' ? 'var(--sub)' : u.role === 'lead' ? 'var(--s-visit)' : u.role === 'view' ? 'var(--s-no)' : 'var(--accent)');
     it.append(el('div', 'meta num', `目前標記 ${u.marks} 家・最後登入 ${u.last ? fmt(u.last) : '還沒登入過'}`));
-    const ctl = el('div', 'ctl');
-    const tog = el('button', 'btn', u.active ? '停用' : '重新啟用');
-    tog.onclick = async () => { tog.disabled = true; try { await api('/admin/users', { name: u.name, active: !u.active }); loadUsers(); } catch (e) { showMsg(e.message); tog.disabled = false; } };
+    const edit = el('div', 'edit');
+    const id = el('input'); id.value = u.id; id.maxLength = 20; id.setAttribute('aria-label', '使用者編號');
+    const nm = el('input', 'nm'); nm.value = u.name; nm.maxLength = 20; nm.setAttribute('aria-label', '姓名');
+    const role = el('select'); role.innerHTML = roleOptions; role.value = u.role; role.setAttribute('aria-label', '權限');
+    const saveBtn = el('button', 'btn solid', '儲存');
+    saveBtn.onclick = async () => {
+      saveBtn.disabled = true; showMsg('');
+      try { await api('/admin/users', { oldId: u.id, id: id.value.trim(), name: nm.value.trim(), role: role.value }); loadUsers(); }
+      catch (e) { showMsg('沒有存成功：' + e.message); saveBtn.disabled = false; }
+    };
     const del = el('button', 'btn danger', '刪除');
     del.onclick = async () => {
       if (!del.classList.contains('sure')) { del.classList.add('sure'); del.textContent = '確定刪除？'; setTimeout(() => { del.classList.remove('sure'); del.textContent = '刪除'; }, 4000); return; }
       del.disabled = true;
-      try { await api('/admin/users/delete', { name: u.name }); loadUsers(); } catch (e) { showMsg(e.message); del.disabled = false; }
+      try { await api('/admin/users/delete', { id: u.id }); loadUsers(); } catch (e) { showMsg(e.message); del.disabled = false; }
     };
-    ctl.append(tog, del);
-    it.append(ctl);
+    edit.append(id, nm, role, saveBtn, del);
+    it.append(edit);
     box.appendChild(it);
   }
 }
 $('userForm').onsubmit = async e => {
   e.preventDefault();
-  const name = $('newUser').value.trim();
-  if (!name) return;
-  try { await api('/admin/users', { name, active: true }); $('newUser').value = ''; showMsg(''); loadUsers(); }
-  catch (err) { showMsg(err.message); }
+  const id = $('newId').value.trim(), name = $('newName').value.trim();
+  if (!id || !name) { showMsg('請輸入使用者編號和姓名。'); return; }
+  try {
+    await api('/admin/users', { id, name, role: $('newRole').value });
+    $('newId').value = ''; $('newName').value = ''; $('newRole').value = 'user'; showMsg(''); loadUsers();
+  } catch (err) { showMsg(err.message); }
 };
 
 /* ---------- 修改紀錄 ---------- */
@@ -272,7 +292,7 @@ async function loadLog(more) {
   for (const r of rows) {
     const it = el('div', 'item');
     it.append(el('b', '', r.name || r.key), el('span', 'pill s-' + (r.s || ''), r.s ? SNAME[r.s] : '取消'));
-    it.append(el('div', 'meta', `${fmt(r.t)}・${r.by || '（沒有名字）'}・${r.p || '（舊紀錄）'}`));
+    it.append(el('div', 'meta', `${fmt(r.t)}・${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'}・${r.p || '（舊紀錄）'}`));
     box.appendChild(it);
   }
   if (rows.length) lastId = rows[rows.length - 1].id;
