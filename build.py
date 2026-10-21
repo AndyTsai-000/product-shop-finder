@@ -379,7 +379,7 @@ def main():
                 if c not in COUNTIES:
                     continue
                 seen.add(k)
-                rows.append([n, COUNTIES.index(c), d, a, '', src])
+                rows.append([n, COUNTIES.index(c), d, a, '', src, k])
         okw = re.compile(spec['okw']) if spec.get('okw') else None
         filt = spec.get('osm', [])
         for e in osm:
@@ -389,7 +389,8 @@ def main():
             if not hit or (okw and not okw.search(e['name'])):
                 continue
             seen.add(e['id'])
-            rows.append([e['name'], COUNTIES.index(e['county']), e['dist'], e['addr'], e['phone'], 2, e['lat'], e['lon']])
+            rows.append([e['name'], COUNTIES.index(e['county']), e['dist'], e['addr'], e['phone'], 2, e['id'], e['lat'], e['lon']])
+        # 每列：[名稱, 縣市索引, 行政區, 地址, 電話, 來源(0公司/1商號/2OSM), 代號(c/s+統編 或 OSM n/w/r+id), 緯度, 經度]
         # 有電話的排前面，再依縣市、行政區、地址
         rows.sort(key=lambda r: (r[1], r[2], r[4] == '', r[3] == '', r[3], r[0]))
         fid = f'i{i}'

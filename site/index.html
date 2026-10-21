@@ -9,6 +9,7 @@
   --bg:#f3f5f4; --card:#ffffff; --ink:#18201d; --sub:#5d6964; --line:#dbe1de;
   --accent:#1d6b57; --accent-ink:#ffffff; --accent-soft:#e1efe9;
   --t-same:#1d6b57; --t-up:#8a6a2c; --t-partner:#3a5f9e; --t-client:#a24a5a;
+  --s-call:#2f6fb0; --s-visit:#8a5cb8; --s-no:#7a7f7c; --s-deal:#1f8a4c;
   --font:"Noto Sans TC",system-ui,-apple-system,"Microsoft JhengHei",sans-serif;
 }
 @media (prefers-color-scheme:dark){
@@ -16,12 +17,14 @@
     --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
     --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
     --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
+    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a;
   }
 }
 :root[data-theme="dark"]{
   --bg:#121715; --card:#1b2220; --ink:#e7ece9; --sub:#9aa7a1; --line:#2d3733;
   --accent:#62c4a7; --accent-ink:#0b1714; --accent-soft:#1d322b; color-scheme:dark;
     --t-same:#62c4a7; --t-up:#d4ad62; --t-partner:#7fa6e6; --t-client:#e48a9a;
+    --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a;
 }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
@@ -77,6 +80,20 @@ select{flex:1 1 140px;max-width:220px}
 .shop .tel{color:var(--ink);font-variant-numeric:tabular-nums}
 .more{align-self:center;font:inherit;font-size:14px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:8px;padding:7px 18px;cursor:pointer}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin:0 -4px;padding:0 4px}
+.tab{font:inherit;font-size:14px;background:none;border:0;border-bottom:2px solid transparent;color:var(--sub);padding:8px 10px;cursor:pointer;white-space:nowrap}
+.tab .n{font-size:12px;margin-left:4px;font-variant-numeric:tabular-nums}
+.tab.on{color:var(--ink);border-bottom-color:var(--st, var(--accent));font-weight:700}
+.tab:focus-visible,.st:focus-visible,#who:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub)}
+.who input{flex:1 1 160px;max-width:260px;padding:5px 9px;font-size:14px}
+.sts{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}
+.st{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:2px 10px;cursor:pointer}
+.st:hover{border-color:var(--st)}
+.st.on{background:var(--st);border-color:var(--st);color:var(--accent-ink)}
+.st-note{font-size:12px;color:var(--sub)}
+.shop .ind-tag{font-size:11px;color:var(--sub)}
+.s-call{--st:var(--s-call)} .s-visit{--st:var(--s-visit)} .s-no{--st:var(--s-no)} .s-deal{--st:var(--s-deal)}
 </style>
 
 <div class="wrap">
@@ -95,6 +112,7 @@ select{flex:1 1 140px;max-width:220px}
     <div class="row">
       <select id="county" aria-label="縣市"></select>
       <select id="district" aria-label="鄉鎮市區"></select>
+      <select id="road" aria-label="路名"></select>
     </div>
   </section>
 
@@ -107,6 +125,11 @@ select{flex:1 1 140px;max-width:220px}
     <div class="res-head">
       <h2 id="resTitle"></h2>
       <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="who" id="whoRow" hidden>
+      <label for="who">標記人</label>
+      <input id="who" placeholder="你的名字（標記狀態時一起記下）" maxlength="20">
     </div>
     <div class="shops" id="shops"></div>
     <button class="more" id="more" hidden>顯示更多</button>
@@ -227,13 +250,43 @@ function fillDistrict() {
     districtsOf(c).map(d => `<option>${d}</option>`).join('');
   sel.disabled = !c;
 }
-$('county').onchange = () => { fillDistrict(); save('county', $('county').value); save('district', ''); renderIndustries(); showList(); };
-$('district').onchange = () => { save('district', $('district').value); renderIndustries(); showList(); };
+$('county').onchange = () => { fillDistrict(); save('county', $('county').value); save('district', ''); road = ''; renderIndustries(); showList(); };
+$('district').onchange = () => { save('district', $('district').value); road = ''; renderIndustries(); showList(); };
+$('road').onchange = () => { road = $('road').value; render(); };
+
+/* ---------- 路名（從地址取出，例如「基隆路1段」→「基隆路一段」）---------- */
+let road = '';
+const CN = '零一二三四五六七八九十';
+const cnNum = n => n <= 10 ? CN[n] : n < 20 ? '十' + CN[n - 10] : CN[Math.floor(n / 10)] + '十' + (n % 10 ? CN[n % 10] : '');
+function roadOf(addr, county, dist) {
+  let rest = String(addr || '');
+  if (county && rest.startsWith(county)) rest = rest.slice(county.length);
+  if (dist && rest.startsWith(dist)) rest = rest.slice(dist.length);
+  rest = rest.replace(/^[^\d路街道巷弄號段]{1,4}?[里村](?![路街道])/, '').replace(/^\d+鄰/, '');
+  const m = rest.match(/^([^\d]{1,10}?(?:大道|路|街))(?:(\d+|[一二三四五六七八九十]+)段)?/);
+  if (!m) return '';
+  return m[1] + (m[2] ? (/^\d+$/.test(m[2]) ? cnNum(+m[2]) : m[2]) + '段' : '');
+}
+function fillRoad(list) {
+  const sel = $('road');
+  const county = $('county').value, district = $('district').value;
+  if (!district || !list) {
+    sel.innerHTML = `<option value="">${!district ? '路名（先選鄉鎮市區）' : current ? '全部路段' : '路名（先點產業）'}</option>`;
+    sel.disabled = true; road = ''; return;
+  }
+  const counts = {};
+  list.forEach(r => { const x = roadOf(r[3], county, district); if (x) counts[x] = (counts[x] || 0) + 1; });
+  const names = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  if (road && !counts[road]) road = '';
+  sel.innerHTML = '<option value="">全部路段</option>' + names.map(n => `<option value="${n}">${n}（${counts[n]}）</option>`).join('');
+  sel.value = road;
+  sel.disabled = !names.length;
+}
 
 /* ---------- 名單資料（site/data，由 build.py 產生）---------- */
 const DATA = 'data/';
 const SRC = ['公司', '商號', '開放地圖'];
-let manifest = null, current = '', shown = 0, rows = [];
+let manifest = null, current = '', currentQ = '', shown = 0, areaRows = [], view = [], listNote = '';
 const cache = {};
 
 fetch(DATA + 'manifest.json').then(r => r.json()).then(m => { manifest = m; renderIndustries(); showList(); })
@@ -249,7 +302,6 @@ function countOf(name) {
 const mapUrl = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 
 function renderIndustries() {
-  const area = $('county').value + $('district').value;
   $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
   const table = PRODUCTS[product];
   const box = $('industries'); box.innerHTML = '';
@@ -271,14 +323,13 @@ function renderIndustries() {
       b.textContent = it.name;
       const n = countOf(it.name);
       if (n !== null) b.insertAdjacentHTML('beforeend', `<span class="n">${n.toLocaleString()}</span>`);
-      b.onclick = () => { current = it.name; currentQ = it.q; renderIndustries(); showList(); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      b.onclick = () => { current = it.name; currentQ = it.q; tab = 'list'; road = ''; renderIndustries(); showList(); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
       links.appendChild(b);
     });
     g.append(h, links);
     box.appendChild(g);
   });
 }
-let currentQ = '';
 
 async function loadRows(info, ci) {
   const file = info.split ? `${info.id}-${ci}.json` : `${info.id}.json`;
@@ -286,68 +337,189 @@ async function loadRows(info, ci) {
   return cache[file];
 }
 
+/* 載入目前產業在所選縣市／鄉鎮的名單，再交給 render() 依路名、狀態分頁顯示 */
 async function showList() {
-  if (!current) return;
+  if (!current) { fillRoad(null); return; }
   const county = $('county').value, district = $('district').value, area = county + district;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
   $('result').hidden = false;
   $('resMap').href = mapUrl(currentQ + ' ' + (area || '台灣'));
-  const title = $('resTitle');
-  title.textContent = current;
-  const sub = document.createElement('span');
-  title.appendChild(sub);
-  const box = $('shops');
-  $('more').hidden = true;
   const info = infoOf(current);
-  rows = [];
+  areaRows = [];
   if (!info || !info.n) {
-    sub.textContent = area || '全台灣';
-    box.innerHTML = `<div class="empty">${manifest ? '這個產業沒有公開名單可以列出，請按右上「在 Google 地圖找」。' : '名單載入中…'}</div>`;
-    $('source').textContent = '';
-    return;
+    listNote = manifest ? '這個產業沒有公開名單可以列出，請按右上「在 Google 地圖找」。' : '名單載入中…';
+  } else if (info.split && ci < 0) {
+    listNote = `這個產業全台有 ${info.n.toLocaleString()} 家，請先在上方選縣市。`;
+  } else {
+    listNote = '名單載入中…';
+    render();
+    const want = current;
+    let all;
+    try { all = await loadRows(info, ci); } catch (e) { listNote = '名單載入失敗，請重新整理網頁。'; render(); return; }
+    if (want !== current) return;
+    areaRows = all.filter(r => (ci < 0 || r[1] === ci) && (!district || r[2] === district));
+    listNote = areaRows.length ? '' : '這個地區沒有找到，試試放大地區，或按右上「在 Google 地圖找」。';
   }
-  if (info.split && ci < 0) {
-    sub.textContent = '全台灣・' + info.n.toLocaleString() + ' 家';
-    box.innerHTML = '<div class="empty">這個產業家數很多，請先在上方選縣市。</div>';
-    return;
+  fillRoad(info && info.n ? areaRows : null);
+  render();
+}
+
+/* ---------- 狀態（存在共用伺服器，大家看得到）---------- */
+const API = 'https://product-shop-status.multi-share-api.workers.dev/status';
+const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
+const STATUS_NAME = Object.fromEntries(STATUS);
+let statuses = {}, statusOk = null, tab = 'list';
+
+async function loadStatuses() {
+  try {
+    const r = await fetch(API, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    statuses = await r.json();
+    statusOk = true;
+  } catch (e) {
+    if (statusOk === null) statusOk = false;
   }
-  box.innerHTML = '<div class="empty">名單載入中…</div>';
-  const want = current;
-  let all;
-  try { all = await loadRows(info, ci); } catch (e) { box.innerHTML = '<div class="empty">名單載入失敗，請重新整理網頁。</div>'; return; }
-  if (want !== current) return;
-  rows = all.filter(r => (ci < 0 || r[1] === ci) && (!district || r[2] === district));
-  sub.textContent = (area || '全台灣') + '・' + rows.length.toLocaleString() + ' 家';
-  box.innerHTML = rows.length ? '' : '<div class="empty">這個地區沒有找到，試試放大地區，或按右上「在 Google 地圖找」。</div>';
+  if (current) render();
+}
+loadStatuses();
+setInterval(() => { if (!document.hidden) loadStatuses(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStatuses(); });
+
+$('who').value = load('who') || '';
+$('who').onchange = () => save('who', $('who').value.trim());
+
+async function setStatus(item, s) {
+  const prev = statuses[item.key];
+  const next = s === (prev && prev.s) ? '' : s;
+  const by = $('who').value.trim();
+  const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
+  if (next) statuses[item.key] = { s: next, by, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
+  else delete statuses[item.key];
+  render();
+  try {
+    const r = await fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: item.key, s: next, by, name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+  } catch (e) {
+    if (prev) statuses[item.key] = prev; else delete statuses[item.key];
+    render();
+    flash('狀態沒有存成功（' + e.message + '），請再試一次。');
+  }
+}
+function flash(msg) {
+  const p = document.createElement('div');
+  p.className = 'empty';
+  p.textContent = msg;
+  $('shops').prepend(p);
+  setTimeout(() => p.remove(), 6000);
+}
+
+/* ---------- 顯示 ---------- */
+const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ind: current });
+const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
+
+function render() {
+  if (!current) return;
+  const county = $('county').value, district = $('district').value;
+  const ci = manifest ? manifest.counties.indexOf(county) : -1;
+  const inRoad = (addr, d) => !road || roadOf(addr, county, d) === road;
+  // 名單分頁：目前產業、還沒有狀態的店家
+  const listItems = areaRows.filter(r => !statuses[r[6]] && inRoad(r[3], r[2])).map(itemOfRow);
+  // 狀態分頁：所有產業裡、在所選地區的已標記店家（新標記的在前）
+  const marked = Object.entries(statuses)
+    .filter(([, v]) => (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
+    .sort((a, b) => b[1].t - a[1].t);
+  const byStatus = Object.fromEntries(STATUS.map(([s]) => [s, marked.filter(([, v]) => v.s === s).map(([k, v]) => itemOfStatus(k, v))]));
+
+  const tabs = $('tabs'); tabs.innerHTML = '';
+  tabs.hidden = !statusOk;
+  $('whoRow').hidden = !statusOk;
+  if (!statusOk) tab = 'list';
+  const mk = (id, label, n, cls) => {
+    const b = document.createElement('button');
+    b.className = 'tab ' + (cls || '') + (tab === id ? ' on' : '');
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(tab === id));
+    b.textContent = label;
+    b.insertAdjacentHTML('beforeend', `<span class="n">${n.toLocaleString()}</span>`);
+    b.onclick = () => { tab = id; render(); };
+    tabs.appendChild(b);
+  };
+  if (statusOk) {
+    mk('list', '名單', listItems.length);
+    STATUS.forEach(([s, label]) => mk(s, label, byStatus[s].length, 's-' + s));
+  }
+
+  const area = (district || county || '全台灣') + road;
+  const title = $('resTitle');
+  title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
+  const sub = document.createElement('span');
+  view = tab === 'list' ? listItems : byStatus[tab];
+  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（所有產業）');
+  title.appendChild(sub);
+
+  const box = $('shops'); box.innerHTML = '';
   shown = 0;
+  let note = '';
+  if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
+  else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`;
+  if (note) box.innerHTML = `<div class="empty">${note}</div>`;
   more();
-  const withPhone = rows.filter(r => r[4]).length;
-  $('source').innerHTML = `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話，本區 ${withPhone} 家）。` +
-    (manifest.updated ? `資料更新：${manifest.updated}。` : '') + '點地址可在 Google 地圖查看電話與營業時間。';
+
+  const withPhone = areaRows.filter(r => r[4]).length;
+  $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
+    `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話，本區 ${withPhone} 家）。` +
+    (manifest && manifest.updated ? `資料更新：${manifest.updated}。` : '');
+}
+
+function card(it) {
+  const d = document.createElement('div');
+  d.className = 'shop';
+  const b = document.createElement('b'); b.textContent = it.name;
+  const s = document.createElement('span'); s.className = 'src';
+  s.textContent = it.src >= 0 ? SRC[it.src] : it.ind;
+  const a = document.createElement('div'); a.className = 'addr';
+  const link = document.createElement('a');
+  link.target = '_blank'; link.rel = 'noopener';
+  link.href = mapUrl(it.addr ? it.name + ' ' + it.addr : (it.lat ? it.lat + ',' + it.lon : it.name));
+  link.textContent = it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）');
+  a.appendChild(link);
+  d.append(b, s, a);
+  if (it.phone) { const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ' + it.phone; d.appendChild(t); }
+  if (statusOk) {
+    const cur = statuses[it.key];
+    const row = document.createElement('div'); row.className = 'sts';
+    STATUS.forEach(([k, label]) => {
+      const btn = document.createElement('button');
+      const on = !!(cur && cur.s === k);
+      btn.className = 'st s-' + k + (on ? ' on' : '');
+      btn.textContent = label;
+      btn.setAttribute('aria-pressed', String(on));
+      btn.title = on ? '再按一次取消' : '標記為「' + label + '」';
+      btn.onclick = () => setStatus(it, k);
+      row.appendChild(btn);
+    });
+    if (cur) {
+      const n = document.createElement('span'); n.className = 'st-note';
+      const t = new Date(cur.t);
+      n.textContent = (cur.by ? cur.by + '・' : '') + (t.getMonth() + 1) + '/' + t.getDate() + ' 標記';
+      row.appendChild(n);
+    }
+    d.appendChild(row);
+  }
+  return d;
 }
 
 function more() {
   const box = $('shops');
-  const end = Math.min(rows.length, shown + 100);
-  for (const r of rows.slice(shown, end)) {
-    const [name, ci, dist, addr, phone, src, lat, lon] = r;
-    const d = document.createElement('div');
-    d.className = 'shop';
-    const b = document.createElement('b'); b.textContent = name;
-    const s = document.createElement('span'); s.className = 'src'; s.textContent = SRC[src];
-    const a = document.createElement('div'); a.className = 'addr';
-    const link = document.createElement('a');
-    link.target = '_blank'; link.rel = 'noopener';
-    link.href = mapUrl(addr ? name + ' ' + addr : lat + ',' + lon);
-    link.textContent = addr || (manifest.counties[ci] + dist + '（看地圖位置）');
-    a.appendChild(link);
-    d.append(b, s, a);
-    if (phone) { const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ' + phone; d.appendChild(t); }
-    box.appendChild(d);
-  }
+  const end = Math.min(view.length, shown + 100);
+  for (const it of view.slice(shown, end)) box.appendChild(card(it));
   shown = end;
-  $('more').hidden = shown >= rows.length;
-  $('more').textContent = `顯示更多（還有 ${(rows.length - shown).toLocaleString()} 家）`;
+  $('more').hidden = shown >= view.length;
+  $('more').textContent = `顯示更多（還有 ${(view.length - shown).toLocaleString()} 家）`;
 }
 $('more').onclick = more;
 
@@ -355,5 +527,6 @@ const saved = load('product');
 if (PRODUCTS[saved]) product = saved;
 renderProducts();
 fillCounty();
+fillRoad(null);
 renderIndustries();
 </script>

@@ -1,0 +1,11 @@
+name = "product-shop-status"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+APP_ORIGINS = "https://andytsai-000.github.io,http://localhost:8790,http://localhost:8791"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "product_shop_status"
+database_id = "60d3f32b-db59-46dd-8a82-ee930ec8e03c"
