@@ -242,9 +242,11 @@ const districtsOf = c => (AREAS[c] || '').split(' ').filter(Boolean)
 
 const $ = id => document.getElementById(id);
 let product = '家具';
-/* 不在 PRODUCTS 裡的就是自行輸入的產品：不分產業，直接用店名搜尋 */
+/* 不在 PRODUCTS 裡的就是自行輸入的產品：相關產業由伺服器請 AI 從現有產業挑，結果存在 CUSTOM */
 const isCustom = () => !PRODUCTS[product];
-const termsOf = p => p.toLowerCase().split(/[\s、,，/]+/).filter(Boolean);
+const CUSTOM = {};
+const tableOf = p => PRODUCTS[p] || CUSTOM[p];
+let relErr = '', relBusy = '';
 
 function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -264,12 +266,35 @@ function pickProduct(p) {
   p = p.trim(); if (!p) return;
   product = p;
   save('product', p);
-  current = isCustom() ? p : '';
+  current = '';
   tab = 'list'; road = '';
   $('result').hidden = true;
   renderProducts();
   renderIndustries();
-  if (isCustom()) { showList(); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  if (isCustom()) { loadRelated(p); $('indStep').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
+/* 問伺服器：這個產品的合作夥伴／潛在客戶是哪些產業（第一次要十幾秒，之後會記住） */
+async function loadRelated(p) {
+  relErr = '';
+  if (CUSTOM[p] || relBusy === p) return;
+  try { const c = JSON.parse(load('rel:' + p) || 'null'); if (c) { CUSTOM[p] = c; renderIndustries(); return; } } catch (e) {}
+  if (statusOk === false) { relErr = '自行輸入產品要用公開網址 andytsai-000.github.io/product-shop-finder 才能使用。'; renderIndustries(); return; }
+  if (!manifest || !token) { relErr = ''; return; }  // 名單或登入還沒好，好了會再叫一次
+  try {
+    relBusy = p;
+    const r = await fetch(SERVER + '/related', { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ product: p, inds: Object.keys(manifest.industries) }) });
+    const j = await r.json();
+    if (r.status === 401) { relBusy = ''; logout(j.error || '請重新登入。'); return; }
+    if (!r.ok) throw new Error(j.error || r.status);
+    CUSTOM[p] = { partner: j.partner.join('、'), client: j.client.join('、') };
+    save('rel:' + p, JSON.stringify(CUSTOM[p]));
+  } catch (e) {
+    relErr = e.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路後再按一次搜尋。' : e.message;
+  }
+  relBusy = '';
+  if (p === product) renderIndustries();
 }
 $('searchForm').onsubmit = e => { e.preventDefault(); pickProduct($('q').value); };
 
@@ -328,7 +353,7 @@ const SRC = ['公司', '商號', '開放地圖'];
 let manifest = null, current = '', currentQ = '', shown = 0, areaRows = [], view = [], listNote = '';
 const cache = {};
 
-fetch(DATA + 'manifest.json').then(r => r.json()).then(m => { manifest = m; renderIndustries(); showList(); })
+fetch(DATA + 'manifest.json').then(r => r.json()).then(m => { manifest = m; renderIndustries(); showList(); if (isCustom()) loadRelated(product); })
   .catch(() => { manifest = { industries: {}, counties: [] }; renderIndustries(); });
 
 function infoOf(name) { return manifest && manifest.industries[name]; }
@@ -341,11 +366,16 @@ function countOf(name) {
 const mapUrl = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 
 function renderIndustries() {
-  $('indStep').hidden = isCustom();
-  if (isCustom()) return;
   $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
-  const table = PRODUCTS[product];
+  const table = tableOf(product);
   const box = $('industries'); box.innerHTML = '';
+  if (!table) {
+    const e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = relErr || '正在判斷「' + product + '」跟哪些產業有關，第一次大約要 15 秒…';
+    box.appendChild(e);
+    return;
+  }
   GROUPS.forEach(([key, title, note]) => {
     const items = parse(table[key]);
     if (!items.length) return;
@@ -385,7 +415,6 @@ async function showList() {
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
   $('result').hidden = false;
   $('resMap').href = mapUrl(currentQ + ' ' + (area || '台灣'));
-  if (isCustom()) return showSearch(ci, district, area);
   const info = infoOf(current);
   areaRows = [];
   if (!info || !info.n) {
@@ -406,31 +435,6 @@ async function showList() {
   render();
 }
 
-/* 自行輸入的產品：在所選縣市所有產業的名單裡，找店名含任一個字詞的店家 */
-async function showSearch(ci, district, area) {
-  $('resMap').href = mapUrl(product + ' ' + (area || '台灣'));
-  areaRows = [];
-  if (!manifest) listNote = '名單載入中…';
-  else if (ci < 0) listNote = '自行輸入的產品要先在上方選縣市，才會列出名單。';
-  else if (!(manifest.search || {})[ci]) listNote = '這個縣市沒有名單資料，請按右上「在 Google 地圖找」。';
-  else {
-    listNote = '搜尋中…';
-    render();
-    const want = product, file = 's' + ci + '.json';
-    let all;
-    try {
-      if (!cache[file]) cache[file] = fetch(DATA + file).then(r => r.json());
-      all = await cache[file];
-    } catch (e) { delete cache[file]; listNote = '名單載入失敗，請重新整理網頁。'; render(); return; }
-    if (want !== product) return;
-    const terms = termsOf(product);
-    areaRows = all.filter(r => (!district || r[2] === district) && terms.some(t => r[0].toLowerCase().includes(t)));
-    listNote = areaRows.length ? '' : `店名裡沒有找到「${product}」，可以換個說法、放大地區，或按右上「在 Google 地圖找」。`;
-  }
-  fillRoad(areaRows.length ? areaRows : null);
-  render();
-}
-
 /* ---------- 狀態（存在共用伺服器，大家看得到）---------- */
 const API = 'https://product-shop-status.multi-share-api.workers.dev/status';
 const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
@@ -440,8 +444,9 @@ let allStatus = [], statuses = {}, statusOk = null, tab = 'list';
 /* 目前產品的狀態：key → 紀錄。每個產品各自一筆；改版前的舊紀錄（p 空白）
    顯示在所有包含該產業的產品下 */
 function statusMap() {
+  const table = tableOf(product) || {};
   if (isCustom()) return Object.fromEntries(allStatus.filter(r => r.p === product).map(r => [r.key, r]));
-  const inds = new Set(GROUPS.flatMap(([g]) => parse(PRODUCTS[product][g]).map(i => i.name)));
+  const inds = new Set(GROUPS.flatMap(([g]) => parse(table[g]).map(i => i.name)));
   const map = {};
   for (const r of allStatus) if (!r.p && inds.has(r.ind)) map[r.key] = r;
   for (const r of allStatus) if (r.p === product) map[r.key] = r;
@@ -473,9 +478,9 @@ function showApp(on) {
 async function boot() {
   let r;
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
-  catch (e) { statusOk = false; showApp(true); if (current) render(); return; }
+  catch (e) { statusOk = false; showApp(true); if (current) render(); if (isCustom()) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
-  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); if (current) render(); }
+  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); if (current) render(); if (isCustom()) loadRelated(product); }
 }
 
 function logout(msg) {
@@ -564,9 +569,7 @@ function flash(msg) {
 }
 
 /* ---------- 顯示 ---------- */
-/* 搜尋檔的列多一欄 r[9]：所屬產業的序號 */
-const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8],
-  ind: r[9] != null ? Object.keys(manifest.industries)[r[9]] : current, found: r[9] != null });
+const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ind: current });
 const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
 
 function render() {
@@ -603,10 +606,10 @@ function render() {
 
   const area = (district || county || '全台灣') + road;
   const title = $('resTitle');
-  title.textContent = tab !== 'list' ? STATUS_NAME[tab] : isCustom() ? '店名含「' + product + '」' : current;
+  title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
   const sub = document.createElement('span');
   view = tab === 'list' ? listItems : byStatus[tab];
-  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' || isCustom() ? '' : '（「' + product + '」所有產業）');
+  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（「' + product + '」所有產業）');
   title.appendChild(sub);
 
   const box = $('shops'); box.innerHTML = '';
@@ -628,7 +631,7 @@ function card(it) {
   d.className = 'shop';
   const b = document.createElement('b'); b.textContent = it.name;
   const s = document.createElement('span'); s.className = 'src';
-  s.textContent = it.src < 0 ? it.ind : it.found ? it.ind + '・' + SRC[it.src] : SRC[it.src];
+  s.textContent = it.src >= 0 ? SRC[it.src] : it.ind;
   const a = document.createElement('div'); a.className = 'addr';
   const link = document.createElement('a');
   link.target = '_blank'; link.rel = 'noopener';
@@ -682,7 +685,7 @@ function more() {
 $('more').onclick = more;
 
 const saved = load('product');
-if (saved && saved.length <= 20) { product = saved; if (isCustom()) current = saved; }
+if (saved && saved.length <= 20) product = saved;
 renderProducts();
 fillCounty();
 fillRoad(null);

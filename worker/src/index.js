@@ -4,6 +4,7 @@
 //   POST /login           {id, name}        → {token, me}
 //   GET  /status          （要登入）        → {me: {id, name, role}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
 //   POST /status          （要登入）        → 設定一家店在某個產品（p）下的狀態，s 空字串＝取消；標記人＝登入的使用者
+//   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
 // 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
 // 管理員（後台，用「使用者名稱＋密碼」登入；帳號存在 admin 表，第一次用 admin＋ADMIN_PASSWORD）
 //   POST /admin/login     {username, password} → {token, username}
@@ -25,6 +26,8 @@ const MAX_WRITES_PER_HOUR = 600;
 const MAX_FAILED_LOGINS_PER_HOUR = 10;
 const USER_DAYS = 90, ADMIN_DAYS = 7;
 const ADMIN_BY = '管理員';
+const AI_MODEL = '@cf/openai/gpt-oss-120b';
+const MAX_AI_PER_HOUR = 100;
 
 export default {
   async fetch(req, rawEnv) {
@@ -45,6 +48,7 @@ async function route(req, env, url) {
   if (p === '/login' && m === 'POST') return userLogin(req, env);
   if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env) }; }
   if (p === '/status' && m === 'POST') { const me = await needUser(req, env); return saveStatus(req, env, me); }
+  if (p === '/related' && m === 'POST') { await needUser(req, env); return related(req, env); }
   if (p === '/admin/login' && m === 'POST') return adminLogin(req, env);
   if (p.startsWith('/admin/')) {
     await needAdmin(req, env);
@@ -157,6 +161,43 @@ async function listStatus(env) {
 
 function checkKey(key) {
   if (!/^[csnwr]\d{1,20}$/.test(key)) fail('店家代號錯誤');
+}
+
+/* 自行輸入的產品：請 AI 從現有產業裡挑「合作夥伴」「潛在客戶」 */
+async function related(req, env) {
+  const b = await body(req);
+  const product = str(b.product, 20);
+  if (!product) fail('請輸入產品');
+  const inds = (Array.isArray(b.inds) ? b.inds : []).slice(0, 300).map(x => str(x, 30)).filter(Boolean);
+  if (!inds.length) fail('缺少產業清單');
+  const pick = a => [...new Set((Array.isArray(a) ? a : []).map(x => String(x).trim()))].filter(x => inds.includes(x)).slice(0, 12);
+  const row = await env.DB.prepare('SELECT partner, client FROM related WHERE p = ?').bind(product).first();
+  if (row) return { partner: pick(JSON.parse(row.partner)), client: pick(JSON.parse(row.client)) };
+  const now = Date.now();
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM related WHERE t > ?').bind(now - 3600e3).first();
+  if (n >= MAX_AI_PER_HOUR) fail('查詢太頻繁，請稍後再試', 429);
+  const prompt = `我在台灣賣「${product}」，要開發客戶。下面是可以列出店家名單的產業：
+${inds.join('、')}
+
+請只從上面的產業裡挑出：
+- client 潛在客戶：會買「${product}」放在自己店裡使用、提供給客人用，或進貨來賣的店家（先想這一類）
+- partner 合作夥伴：自己不太會買「${product}」，但服務的客人剛好也會需要「${product}」，可以互相介紹客人或一起接案的店家（例如裝潢、設計、相關服務業）
+各挑 3～10 個，關聯最強的排前面；沒有明顯關聯的不要硬選，同一個產業不要兩邊都放。名稱要和清單完全一樣。
+只回 JSON，不要其他文字：{"client":["…"],"partner":["…"]}`;
+  let out;
+  try {
+    out = await env.AI.run(AI_MODEL, { messages: [{ role: 'user', content: prompt }], max_tokens: 3000, temperature: 0.2, reasoning: { effort: 'low' } });
+  } catch (e) { fail('AI 暫時無法使用，請稍後再試', 503); }
+  const res = out?.response ?? out?.choices?.[0]?.message?.content ?? '';
+  let j = typeof res === 'object' && res ? res : {};
+  if (typeof res === 'string') {
+    try { j = JSON.parse(res.replace(/<think>[\s\S]*?<\/think>/, '').match(/\{[\s\S]*\}/)[0]); } catch (e) { /* 下面當作沒結果 */ }
+  }
+  const partner = pick(j.partner), client = pick(j.client).filter(x => !partner.includes(x));
+  if (!partner.length && !client.length) fail('沒有找到相關產業，可以換個說法再試');
+  await env.DB.prepare('INSERT OR REPLACE INTO related (p, partner, client, t) VALUES (?,?,?,?)')
+    .bind(product, JSON.stringify(partner), JSON.stringify(client), now).run();
+  return { partner, client };
 }
 
 async function saveStatus(req, env, me) {

@@ -344,42 +344,9 @@ def load_osm(towns):
     return out
 
 
-# ---------- 自行輸入產品用的搜尋檔 ----------
-
-def build_search(manifest):
-    """把所有產業依縣市合併成 s<縣市索引>.json（同一家只留一筆），網頁自行輸入產品時用店名搜尋。
-    每列同產業檔，最後多一欄：第一個所屬產業的序號。"""
-    names = list(manifest['industries'])
-    by_ci = {}
-    for n, e in manifest['industries'].items():
-        if not e['n']:
-            continue
-        files = [f"{e['id']}-{ci}.json" for ci in e['split']] if e.get('split') else [e['id'] + '.json']
-        for f in files:
-            for r in json.load(open(os.path.join(OUT, f), encoding='utf-8')):
-                d = by_ci.setdefault(r[1], {})
-                if r[6] not in d:
-                    d[r[6]] = r + [None] * (9 - len(r)) + [names.index(n)]
-    for f in os.listdir(OUT):
-        if re.fullmatch(r's\d+\.json', f):
-            os.remove(os.path.join(OUT, f))
-    manifest['search'] = {}
-    for ci, d in sorted(by_ci.items()):
-        rows = sorted(d.values(), key=lambda r: (r[2], r[4] == '', r[3] == '', r[3], r[0]))
-        json.dump(rows, open(os.path.join(OUT, f's{ci}.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
-        manifest['search'][ci] = len(rows)
-
-
 # ---------- 整理 ----------
 
 def main():
-    if '--search-only' in sys.argv:  # 只用現有名單重做搜尋檔
-        p = os.path.join(OUT, 'manifest.json')
-        manifest = json.load(open(p, encoding='utf-8'))
-        manifest['industries'] = {k: {**v, 'split': {int(c): n for c, n in v['split'].items()}} if v.get('split') else v for k, v in manifest['industries'].items()}
-        build_search(manifest)
-        json.dump(manifest, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
-        return print('搜尋檔', manifest['search'])
     os.makedirs(RAW, exist_ok=True)
     if '--osm-only' in sys.argv:
         print('下載 OSM…', flush=True); download_osm()
@@ -445,7 +412,6 @@ def main():
         manifest['industries'][name] = entry
         print(f'  {name}: {len(rows)} 家（OSM {entry["osm"]}）', flush=True)
     total = sum(e['n'] for e in manifest['industries'].values())
-    build_search(manifest)
     json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
     size = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT))
     print(json.dumps({'industries': len(INDUSTRIES), 'shops': total, 'old': old_total, 'files': len(os.listdir(OUT)), 'MB': round(size / 1e6, 1)}, ensure_ascii=False))
