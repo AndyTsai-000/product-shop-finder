@@ -223,7 +223,7 @@ async function loadStatus() {
   try { statuses = await api('/admin/status'); } catch (e) { showMsg(e.message); return; }
   const prods = [...new Set([...PRODUCTS, ...statuses.map(s => s.p).filter(Boolean)])];
   const cur = $('fProd').value;
-  $('fProd').innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${p}</option>`).join('') +
+  $('fProd').innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${p.replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';')}</option>`).join('') +
     (statuses.some(s => !s.p) ? '<option value="(舊)">改版前的舊紀錄</option>' : '');
   $('fProd').value = cur;
   renderStatus();
