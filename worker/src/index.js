@@ -170,7 +170,7 @@ async function related(req, env) {
   if (!product) fail('請輸入產品');
   const inds = (Array.isArray(b.inds) ? b.inds : []).slice(0, 300).map(x => str(x, 30)).filter(Boolean);
   if (!inds.length) fail('缺少產業清單');
-  const pick = a => [...new Set((Array.isArray(a) ? a : []).map(x => String(x).trim()))].filter(x => inds.includes(x)).slice(0, 12);
+  const pick = a => [...new Set((Array.isArray(a) ? a : []).map(x => String(x).trim()))].filter(x => inds.includes(x)).slice(0, 20);
   const row = await env.DB.prepare('SELECT partner, client FROM related WHERE p = ?').bind(product).first();
   if (row) return { partner: pick(JSON.parse(row.partner)), client: pick(JSON.parse(row.client)) };
   const now = Date.now();
@@ -182,7 +182,7 @@ ${inds.join('、')}
 請只從上面的產業裡挑出：
 - client 潛在客戶：會買「${product}」放在自己店裡使用、提供給客人用，或進貨來賣的店家（先想這一類）
 - partner 合作夥伴：自己不太會買「${product}」，但服務的客人剛好也會需要「${product}」，可以互相介紹客人或一起接案的店家（例如裝潢、設計、相關服務業）
-各挑 3～10 個，關聯最強的排前面；沒有明顯關聯的不要硬選，同一個產業不要兩邊都放。名稱要和清單完全一樣。
+各挑 8～18 個，盡量多找可以開發的，關聯最強的排前面；完全無關的才不要選，同一個產業不要兩邊都放。名稱要和清單完全一樣。
 只回 JSON，不要其他文字：{"client":["…"],"partner":["…"]}`;
   let out;
   try {
