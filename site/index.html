@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
-/* 版面：一欄三步驟（產品 → 地區 → 產業清單），產業每列一顆「開地圖」 */
+/* 版面：一欄（產品 → 地區 → 相關產業 → 店家名單＋狀態分頁），手機也能用 */
 :root{
   --bg:#f3f5f4; --card:#ffffff; --ink:#18201d; --sub:#5d6964; --line:#dbe1de;
   --accent:#1d6b57; --accent-ink:#ffffff; --accent-soft:#e1efe9;
@@ -27,6 +27,7 @@
     --s-call:#6fa8e6; --s-visit:#b892e0; --s-no:#9aa29e; --s-deal:#5cc68a; --warn:#ef8a75;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
 .wrap{max-width:760px;margin:0 auto;padding-block:24px 56px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -107,10 +108,23 @@ select{flex:1 1 140px;max-width:220px}
 .s-call{--st:var(--s-call)} .s-visit{--st:var(--s-visit)} .s-no{--st:var(--s-no)} .s-deal{--st:var(--s-deal)}
 .dlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;max-width:min(400px,calc(100vw - 32px));box-shadow:0 12px 40px rgb(0 0 0 / .25)}
 .dlg::backdrop{background:rgb(0 0 0 / .45)}
+.toast{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:20;
+  width:max-content;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:12px;
+  background:var(--ink);color:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;box-shadow:0 8px 24px rgb(0 0 0 / .25)}
+.toast button{font:inherit;font-weight:700;background:none;border:0;color:var(--accent-soft);cursor:pointer;padding:2px 4px;white-space:nowrap}
+.toast button:focus-visible{outline:2px solid var(--accent-soft);border-radius:4px}
+.ind.zero{opacity:.55}
+@media (max-width:480px){
+  .tabs{gap:0}
+  .tab{padding:8px 4px;font-size:13px;flex:1 1 auto}
+  .tab .n{margin-left:2px}
+}
 .dlg h2{margin:0 0 10px;font-size:18px;color:var(--warn)}
 .dlg p{margin:0 0 8px;line-height:1.6}
 .dlg .row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
 </style>
+
+<div class="toast" id="toast" role="status" hidden><span></span><button type="button">復原</button></div>
 
 <dialog class="dlg" id="otherDlg" aria-labelledby="otherTitle">
   <h2 id="otherTitle">⚠️ 你的帳號在其他瀏覽器登入了</h2>
@@ -153,7 +167,7 @@ select{flex:1 1 140px;max-width:220px}
     <div class="label">產品</div>
     <div class="chips" id="products"></div>
     <form class="row" id="searchForm">
-      <input id="q" placeholder="或自行輸入產品，例如：沙發、床墊" maxlength="20" aria-label="自行輸入產品">
+      <input id="q" placeholder="或自行輸入產品，例如：沙發" maxlength="20" aria-label="自行輸入產品">
       <button class="btn solid">搜尋</button>
     </form>
   </section>
@@ -406,9 +420,9 @@ function renderIndustries() {
     links.className = 'links';
     items.forEach(it => {
       const b = document.createElement('button');
-      b.className = 'ind' + (it.name === current ? ' on' : '');
-      b.textContent = it.name;
       const n = countOf(it.name);
+      b.className = 'ind' + (it.name === current ? ' on' : '') + (n === 0 ? ' zero' : '');
+      b.textContent = it.name;
       if (n !== null) b.insertAdjacentHTML('beforeend', `<span class="n">${n.toLocaleString()}</span>`);
       b.onclick = () => { current = it.name; currentQ = it.q; tab = 'list'; road = ''; renderIndustries(); showList(); $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
       links.appendChild(b);
@@ -556,9 +570,11 @@ async function loadStatuses() {
     if (r.status === 401) { logout('登入已失效，請重新登入。'); return; }
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
+    const changed = JSON.stringify(j.items) !== JSON.stringify(allStatus);
     allStatus = j.items; setMe(j.me); showApp(true);
+    // 沒有變動就不重畫，免得「顯示更多」展開的店家收回去、畫面跳動
+    if (changed && current) render(true);
   } catch (e) { /* 暫時連不上就沿用舊資料，下次再抓 */ }
-  if (current) render();
 }
 setInterval(() => { if (!document.hidden) loadStatuses(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStatuses(); });
@@ -581,29 +597,40 @@ async function setStatus(item, s) {
   // 先在畫面上更新，再送到伺服器
   allStatus = allStatus.filter(r => !(r.key === item.key && (r.p === product || (prev && r.p === prev.p))));
   if (next) allStatus.push(rec);
-  render();
+  render(true);
   try {
     if (prev && prev.p !== product) await post({ key: item.key, p: prev.p, s: '' });  // 舊紀錄改成這個產品的
     await post(rec);
   } catch (e) {
     flash('狀態沒有存成功（' + e.message + '），請再試一次。');
     await loadStatuses();
+    return;
   }
+  // 店家會移到別的分頁，告訴使用者去哪了，並可以復原
+  const undo = !prev || prev.p === product ? () => setStatus(item, prev ? prev.s : '') : null;
+  flash(next ? `「${item.name}」已標記為「${STATUS_NAME[next]}」，可到「${STATUS_NAME[next]}」分頁查看。` : `已取消「${item.name}」的狀態，回到名單。`, undo);
 }
-function flash(msg) {
-  const p = document.createElement('div');
-  p.className = 'empty';
-  p.textContent = msg;
-  $('shops').prepend(p);
-  setTimeout(() => p.remove(), 6000);
+/* 畫面下方的提示，幾秒後自動消失；undo 有給就多一顆「復原」 */
+let flashTimer = 0;
+function flash(msg, undo) {
+  const t = $('toast');
+  t.querySelector('span').textContent = msg;
+  const b = t.querySelector('button');
+  b.hidden = !undo;
+  b.onclick = () => { t.hidden = true; undo(); };
+  t.hidden = false;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { t.hidden = true; }, undo ? 7000 : 5000);
 }
 
 /* ---------- 顯示 ---------- */
 const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ind: current });
 const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
 
-function render() {
+/* keep：保留目前已展開的筆數和捲動位置（自動更新、標記時用） */
+function render(keep) {
   if (!current) return;
+  const keepN = keep ? shown : 0, keepY = scrollY;
   statuses = statusMap();
   const county = $('county').value, district = $('district').value;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
@@ -648,7 +675,8 @@ function render() {
   if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
   else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`;
   if (note) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = note; box.appendChild(e); }
-  more();
+  do more(); while (shown < Math.min(keepN, view.length));
+  if (keep) scrollTo(0, keepY);
 
   const withPhone = areaRows.filter(r => r[4]).length;
   $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
@@ -669,7 +697,12 @@ function card(it) {
   link.textContent = it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）');
   a.appendChild(link);
   d.append(b, s, a);
-  if (it.phone) { const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ' + it.phone; d.appendChild(t); }
+  if (it.phone) {
+    // 手機上點了直接撥號
+    const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ';
+    const tel = document.createElement('a'); tel.href = 'tel:' + it.phone.replace(/[^\d+#]/g, ''); tel.textContent = it.phone;
+    t.appendChild(tel); d.appendChild(t);
+  }
   if (statusOk) {
     const cur = statuses[it.key];
     const editable = canEdit(cur);

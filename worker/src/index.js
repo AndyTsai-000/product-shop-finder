@@ -13,7 +13,7 @@
 //   POST /admin/account   {current, username, password?} → 改使用者名稱／密碼（要目前的密碼），回新的 {token}
 //   GET  /admin/status                      → 全部狀態
 //   POST /admin/status    {key, p, s}       → 改狀態或取消（s 空字串）
-//   GET  /admin/users                       → 使用者名單
+//   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
 //   POST /admin/users     {oldId?, id, name, role} → 新增（沒有 oldId）或修改（可改編號、姓名、權限）
 //   POST /admin/users/delete {id}           → 刪除使用者
 //   GET  /admin/log?since=<毫秒>&before=<id> → 修改紀錄（新到舊，每次 200 筆；since 起算時間，0＝全部）
@@ -311,7 +311,7 @@ async function adminSetStatus(req, env) {
 }
 
 async function listUsers(env) {
-  const { results } = await env.DB.prepare(`SELECT u.id, u.name, u.role, u.created, u.last,
+  const { results } = await env.DB.prepare(`SELECT u.id, u.name, u.role, u.created, u.last, u.sidua,
     (SELECT COUNT(*) FROM status s WHERE s.uid = u.id) AS marks FROM users u ORDER BY u.role = 'off', u.id`).all();
   return results;
 }

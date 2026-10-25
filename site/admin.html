@@ -44,6 +44,7 @@ input{flex:1 1 180px}
 .btn:disabled{opacity:.5;cursor:default}
 .btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .err{color:var(--warn);font-size:14px;margin:0;min-height:1.2em}
+#msg:empty{display:none}
 .hint{color:var(--sub);font-size:13px;margin:0}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
 .tab{font:inherit;background:none;border:0;border-bottom:2px solid transparent;color:var(--sub);padding:8px 12px;cursor:pointer;white-space:nowrap}
@@ -269,7 +270,7 @@ async function change(r, s, ctrl) {
   ctrl.disabled = true; showMsg('');
   try {
     await api('/admin/status', { key: r.key, p: r.p || '', s });
-    if (s) { r.s = s; r.by = '管理員'; r.t = Date.now(); }
+    if (s) { r.s = s; r.by = '管理員'; r.uid = ''; r.t = Date.now(); }
     else statuses = statuses.filter(x => x !== r);
     renderStatus();
   } catch (e) { showMsg('沒有改成功：' + e.message); ctrl.disabled = false; }
@@ -289,7 +290,7 @@ async function loadUsers() {
     const it = el('div', 'item' + (u.role === 'off' ? ' off' : ''));
     it.append(el('b', '', u.id + ' ' + u.name), el('span', 'pill', RNAME[u.role] || u.role));
     it.style.setProperty('--st', u.role === 'off' ? 'var(--sub)' : u.role === 'view' ? 'var(--s-no)' : 'var(--accent)');
-    it.append(el('div', 'meta num', `目前標記 ${u.marks} 家・最後登入 ${u.last ? fmt(u.last) : '還沒登入過'}`));
+    it.append(el('div', 'meta num', `目前標記 ${u.marks} 家・最後登入 ${u.last ? fmt(u.last) + (u.sidua ? '（' + u.sidua + '）' : '') : '還沒登入過'}`));
     const edit = el('div', 'edit');
     const id = el('input'); id.value = u.id; id.maxLength = 20; id.setAttribute('aria-label', '使用者編號');
     const nm = el('input', 'nm'); nm.value = u.name; nm.maxLength = 20; nm.setAttribute('aria-label', '姓名');
