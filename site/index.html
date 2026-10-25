@@ -104,7 +104,22 @@ select{flex:1 1 140px;max-width:220px}
 .st-note{font-size:12px;color:var(--sub)}
 .shop .ind-tag{font-size:11px;color:var(--sub)}
 .s-call{--st:var(--s-call)} .s-visit{--st:var(--s-visit)} .s-no{--st:var(--s-no)} .s-deal{--st:var(--s-deal)}
+.dlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;max-width:min(400px,calc(100vw - 32px));box-shadow:0 12px 40px rgb(0 0 0 / .25)}
+.dlg::backdrop{background:rgb(0 0 0 / .45)}
+.dlg h2{margin:0 0 10px;font-size:18px;color:var(--warn)}
+.dlg p{margin:0 0 8px;line-height:1.6}
+.dlg .row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
 </style>
+
+<dialog class="dlg" id="otherDlg" aria-labelledby="otherTitle">
+  <h2 id="otherTitle">⚠️ 你的帳號在其他瀏覽器登入了</h2>
+  <p id="otherInfo"></p>
+  <p>如果是你自己用另一台電腦或手機登入，可以繼續使用；如果不是你，請馬上聯絡管理員。</p>
+  <div class="row">
+    <button class="btn" id="otherOut">登出這個瀏覽器</button>
+    <button class="btn solid" id="otherOk">我知道了</button>
+  </div>
+</dialog>
 
 <div class="wrap">
   <header class="top">
@@ -458,7 +473,19 @@ const SERVER = API.replace(/\/status$/, '');
 const ROLE_NAME = { user: '一般（可修改自己的標記）', view: '檢視（只能查看）' };
 let token = load('tok') || '', me = null;
 try { me = JSON.parse(load('me') || 'null'); } catch (e) { me = null; }
-const setMe = m => { me = m; save('me', m ? JSON.stringify(m) : ''); };
+const setMe = m => { me = m; save('me', m ? JSON.stringify(m) : ''); if (m) checkOther(); };
+
+/* 同一個帳號在別的瀏覽器登入後，伺服器回的 me 會有 other；每一次新的登入只提醒一次 */
+function checkOther() {
+  const o = me.other, dlg = $('otherDlg');
+  if (!o || load('otherSeen') === String(o.t) || dlg.open) return;
+  const d = new Date(o.t);
+  $('otherInfo').textContent = '登入時間：' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.toTimeString().slice(0, 5) + (o.ua ? '　裝置：' + o.ua : '');
+  dlg.showModal();
+}
+$('otherDlg').onclose = () => { if (me && me.other) save('otherSeen', String(me.other.t)); };
+$('otherOk').onclick = () => $('otherDlg').close();
+$('otherOut').onclick = () => { $('otherDlg').close(); logout(''); };
 /* 這家店的狀態我能不能改：一般只能改自己標的（沒標記人的舊紀錄也能改）；檢視不能改；別人標的只有後台能改 */
 const canEdit = cur => !!me && me.role === 'user' && (!cur || !cur.uid || cur.uid === me.id);
 const authHeaders = () => (token ? { Authorization: 'Bearer ' + token } : {});

@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,                 -- 姓名（登入用，也顯示在狀態上）
   role TEXT NOT NULL DEFAULT 'user',  -- user 一般／view 檢視／off 停用
   created INTEGER,
-  last INTEGER
+  last INTEGER,
+  sid TEXT, sidt INTEGER, sidua TEXT -- 最後一次登入的憑證代號、時間、裝置（同帳號在別的瀏覽器登入時提醒）
 );
 CREATE TABLE IF NOT EXISTS logins (ip TEXT, t INTEGER, ok INTEGER, who TEXT);
 CREATE INDEX IF NOT EXISTS logins_ip_t ON logins(ip, t);

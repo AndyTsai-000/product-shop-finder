@@ -2,9 +2,10 @@
 //
 // 使用者（用「編號＋姓名」登入，使用者由管理員在後台新增）
 //   POST /login           {id, name}        → {token, me}
-//   GET  /status          （要登入）        → {me: {id, name, role}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
+//   GET  /status          （要登入）        → {me: {id, name, role, other?}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
 //   POST /status          （要登入）        → 設定一家店在某個產品（p）下的狀態，s 空字串＝取消；標記人＝登入的使用者
 //   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
+// 同一個帳號在別的瀏覽器登入後，舊瀏覽器的 me 會多 other: {t, ua}（最後一次登入的時間、裝置），前台跳提醒
 // 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
 // 管理員（後台，用「使用者名稱＋密碼」登入；帳號存在 admin 表，第一次用 admin＋ADMIN_PASSWORD）
 //   POST /admin/login     {username, password} → {token, username}
@@ -116,10 +117,23 @@ async function readToken(req, env) {
 async function needUser(req, env) {
   const t = await readToken(req, env);
   if (!t || t.role !== 'user' || !t.rid) fail('請先登入', 401);
-  const u = await env.DB.prepare('SELECT id, name, role FROM users WHERE rowid = ?').bind(t.rid).first();
+  const u = await env.DB.prepare('SELECT id, name, role, sid, sidt, sidua FROM users WHERE rowid = ?').bind(t.rid).first();
   if (!u) fail('找不到這個使用者，請重新登入', 401);
   if (u.role === 'off') fail('這個帳號已被停用，請聯絡管理員', 401);
-  return u;
+  const { sid, sidt, sidua, ...me } = u;
+  // 有更新的登入：新憑證比對 sid；改版前的舊憑證沒有 sid，就看登入時間是不是比這張憑證晚
+  if (sid && (t.sid ? t.sid !== sid : sidt > t.exp - USER_DAYS * 864e5)) me.other = { t: sidt, ua: sidua || '' };
+  return me;
+}
+
+/* 登入的裝置，給「在其他瀏覽器登入」提醒用 */
+function deviceOf(req) {
+  const ua = req.headers.get('User-Agent') || '';
+  const b = /Line\//.test(ua) ? 'LINE' : /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung 瀏覽器'
+    : /Firefox|FxiOS/.test(ua) ? 'Firefox' : /Chrome|CriOS/.test(ua) ? 'Chrome' : /Safari/.test(ua) ? 'Safari' : '瀏覽器';
+  const o = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Windows/.test(ua) ? 'Windows'
+    : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+  return o ? b + '・' + o : b;
 }
 
 async function needAdmin(req, env) {
@@ -150,8 +164,9 @@ async function userLogin(req, env) {
   }
   if (u.role === 'off') { await noteLogin(env, ip, false, id + ' ' + name); fail('這個帳號已被停用，請聯絡管理員', 403); }
   await noteLogin(env, ip, true, u.id + ' ' + u.name);
-  await env.DB.prepare('UPDATE users SET last = ? WHERE rowid = ?').bind(Date.now(), u.rid).run();
-  return { token: await makeToken(env, { role: 'user', rid: u.rid }, USER_DAYS), me: { id: u.id, name: u.name, role: u.role } };
+  const sid = crypto.randomUUID(), now = Date.now();
+  await env.DB.prepare('UPDATE users SET last = ?, sid = ?, sidt = ?, sidua = ? WHERE rowid = ?').bind(now, sid, now, deviceOf(req), u.rid).run();
+  return { token: await makeToken(env, { role: 'user', rid: u.rid, sid }, USER_DAYS), me: { id: u.id, name: u.name, role: u.role } };
 }
 
 async function listStatus(env) {
