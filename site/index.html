@@ -455,6 +455,8 @@ async function showList() {
 const API = 'https://product-shop-status.multi-share-api.workers.dev/status';
 const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
 const STATUS_NAME = Object.fromEntries(STATUS);
+/* 其他產品標過的提醒：狀態 → [動作, 標記人的稱呼] */
+const OTHER_TEXT = { call: ['已電聯', '電聯者'], visit: ['已拜訪', '拜訪者'], no: ['標記無意願', '標記者'], deal: ['標記合作中', '負責人'] };
 let allStatus = [], statuses = {}, statusOk = null, tab = 'list';
 
 /* 目前產品的狀態：key → 紀錄。每個產品各自一筆；改版前的舊紀錄（p 空白）
@@ -702,10 +704,11 @@ function card(it) {
     const others = allStatus.filter(r => r.key === it.key && r !== cur && r.p !== product);
     if (others.length) {
       const o = document.createElement('div'); o.className = 'st-other';
-      o.textContent = '⚠ 其他產品已標記：' + others.map(r => {
+      o.textContent = '⚠ ' + others.map(r => {
         const t = new Date(r.t);
-        return (r.p ? '「' + r.p + '」' : '舊紀錄') + (STATUS_NAME[r.s] || r.s) + '（' + (r.by || '未記名') + ' ' + (t.getMonth() + 1) + '/' + t.getDate() + '）';
-      }).join('、');
+        const [act, who] = OTHER_TEXT[r.s] || ['已標記「' + r.s + '」', '標記者'];
+        return '此店家已有其他產品' + (r.p ? '(' + r.p + ')' : '') + '人員' + act + '(' + who + '：' + (r.by || '未記名') + (t.getMonth() + 1) + '/' + t.getDate() + ')';
+      }).join('；');
       d.appendChild(o);
     }
   }
