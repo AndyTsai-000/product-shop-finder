@@ -504,7 +504,7 @@ $('otherDlg').onclose = () => { if (me && me.other) save('otherSeen', String(me.
 $('otherOk').onclick = () => $('otherDlg').close();
 $('otherOut').onclick = () => { $('otherDlg').close(); logout(''); };
 /* 這家店的狀態我能不能改：一般只能改自己標的（沒標記人的舊紀錄也能改）；檢視不能改；別人標的只有後台能改 */
-const canEdit = cur => !!me && me.role === 'user' && (!cur || !cur.uid || cur.uid === me.id);
+const canEdit = cur => !!me && me.role === 'user' && (!cur || cur.uid === me.id);
 const authHeaders = () => (token ? { Authorization: 'Bearer ' + token } : {});
 
 function showApp(on) {

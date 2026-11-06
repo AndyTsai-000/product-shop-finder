@@ -222,9 +222,9 @@ async function saveStatus(req, env, me) {
   checkKey(key);
   if (s && !STATUSES.includes(s)) fail('狀態錯誤');
   if (s && !p) fail('缺少產品');
-  // 一般權限只能改自己標的（沒有標記人的舊紀錄大家都能改）
+  // 一般權限只能改、取消自己標的；後台改過的（沒有標記人）只有後台能動
   const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ?').bind(key, p).first();
-  if (cur && cur.uid && cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人或後台可以修改`, 403);
+  if (cur && cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人或後台可以修改`, 403);
   const ip = ipOf(req), now = Date.now();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM log WHERE ip = ? AND t > ?').bind(ip, now - 3600e3).first();
   if (n >= MAX_WRITES_PER_HOUR) fail('修改太頻繁，請稍後再試', 429);
