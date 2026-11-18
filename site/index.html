@@ -75,10 +75,11 @@ select{flex:1 1 140px;max-width:220px}
 .shop:first-child{border-top:0}
 .shop b{font-weight:500;min-width:0;word-break:break-word;user-select:all}
 .shop .src{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:0 8px;align-self:start;white-space:nowrap}
-.shop .addr,.shop .tel{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
+.shop .addr,.shop .tel,.shop .links{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
 .shop a{color:var(--accent);text-decoration:none}
 .shop a:hover{text-decoration:underline}
 .shop .tel{color:var(--ink);font-variant-numeric:tabular-nums}
+.shop .links{display:flex;flex-wrap:wrap;gap:4px 14px}
 .more{align-self:center;font:inherit;font-size:14px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:8px;padding:7px 18px;cursor:pointer}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
 .tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin:0 -4px;padding:0 4px}
@@ -624,7 +625,7 @@ function flash(msg, undo) {
 }
 
 /* ---------- 顯示 ---------- */
-const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ind: current });
+const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ct: r[9] || {}, ind: current });
 const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
 
 /* keep：保留目前已展開的筆數和捲動位置（自動更新、標記時用） */
@@ -680,7 +681,7 @@ function render(keep) {
 
   const withPhone = areaRows.filter(r => r[4]).length;
   $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
-    `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話，本區 ${withPhone} 家）。` +
+    `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話、信箱、粉專，本區有電話 ${withPhone} 家）。` +
     (manifest && manifest.updated ? `資料更新：${manifest.updated}。` : '');
 }
 
@@ -703,6 +704,18 @@ function card(it) {
     const tel = document.createElement('a'); tel.href = 'tel:' + it.phone.replace(/[^\d+#]/g, ''); tel.textContent = it.phone;
     t.appendChild(tel); d.appendChild(t);
   }
+  // 信箱、粉專、官網：開放地圖有才顯示；沒有粉專就給「找粉專」（用店名＋縣市搜尋 Facebook）
+  const ct = it.ct || {}, ln = document.createElement('div'); ln.className = 'links';
+  const add = (href, text, title) => {
+    const x = document.createElement('a'); x.href = href; x.textContent = text; x.title = title;
+    if (!href.startsWith('mailto:')) { x.target = '_blank'; x.rel = 'noopener'; }
+    ln.appendChild(x);
+  };
+  if (ct.e) add('mailto:' + ct.e, '✉ ' + ct.e, '寄信');
+  if (ct.f) add(ct.f, '粉絲專頁', '打開 Facebook 粉絲專頁');
+  else add('https://www.google.com/search?q=' + encodeURIComponent(it.name + ' ' + (manifest ? manifest.counties[it.ci] || '' : '') + ' facebook'), '找粉專', '用店名搜尋 Facebook 粉絲專頁');
+  if (ct.w) add(ct.w, '官網', '打開官方網站');
+  d.appendChild(ln);
   if (statusOk) {
     const cur = statuses[it.key];
     const editable = canEdit(cur);

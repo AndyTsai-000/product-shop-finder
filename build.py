@@ -372,6 +372,25 @@ def phone_of(tags):
     return re.sub(r'\s+', ' ', p).strip()
 
 
+def contact_of(tags):
+    """OSM 上的信箱、粉專、官網（沒有就回空字典）"""
+    first = lambda *ks: next((tags[k].split(';')[0].strip() for k in ks if tags.get(k)), '')
+    email = first('email', 'contact:email')
+    fb = first('contact:facebook', 'facebook')
+    web = first('website', 'contact:website', 'url')
+    if web and 'facebook.com' in web:
+        fb, web = fb or web, ''
+    if fb and not fb.startswith('http'):
+        fb = 'https://www.facebook.com/' + fb.lstrip('@/')
+    if web and not web.startswith('http'):
+        web = 'http://' + web
+    out = {}
+    if re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email): out['e'] = email
+    if fb: out['f'] = fb
+    if web: out['w'] = web
+    return out
+
+
 def load_osm(towns):
     path = os.path.join(RAW, 'osm.json')
     if not os.path.exists(path):
@@ -396,7 +415,7 @@ def load_osm(towns):
         if addr and not a.startswith(c):
             a = c + d + a
         out.append(dict(id=e['type'][0] + str(e['id']), name=name, county=c, dist=d, addr=a if addr else '',
-                        phone=phone_of(t), lat=round(lat, 5), lon=round(lon, 5), tags=t))
+                        phone=phone_of(t), ct=contact_of(t), lat=round(lat, 5), lon=round(lon, 5), tags=t))
     return out
 
 
@@ -445,8 +464,8 @@ def main():
             if not hit or (okw and not okw.search(e['name'])):
                 continue
             seen.add(e['id'])
-            rows.append([e['name'], COUNTIES.index(e['county']), e['dist'], e['addr'], e['phone'], 2, e['id'], e['lat'], e['lon']])
-        # 每列：[名稱, 縣市索引, 行政區, 地址, 電話, 來源(0公司/1商號/2OSM), 代號(c/s+統編 或 OSM n/w/r+id), 緯度, 經度]
+            rows.append([e['name'], COUNTIES.index(e['county']), e['dist'], e['addr'], e['phone'], 2, e['id'], e['lat'], e['lon']] + ([e['ct']] if e['ct'] else []))
+        # 每列：[名稱, 縣市索引, 行政區, 地址, 電話, 來源(0公司/1商號/2OSM), 代號(c/s+統編 或 OSM n/w/r+id), 緯度, 經度, 聯絡方式{e信箱,f粉專,w官網}（有才放）]
         # 有電話的排前面，再依縣市、行政區、地址
         rows.sort(key=lambda r: (r[1], r[2], r[4] == '', r[3] == '', r[3], r[0]))
         fid = f'i{i}'
