@@ -33,10 +33,11 @@ body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;gap:14px}
 h1{font-size:24px;margin:0;text-wrap:balance}
-.lead{color:var(--sub);margin:4px 0 0;font-size:14px}
+.lead{color:var(--sub);margin:-6px 0 0;font-size:14px}
 .step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
   display:flex;flex-direction:column;gap:10px}
 .label{font-size:13px;color:var(--sub);font-weight:700;letter-spacing:.04em}
+.label.sep{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
   padding:7px 15px;font:inherit;cursor:pointer}
@@ -66,20 +67,32 @@ select{flex:1 1 140px;max-width:220px}
 .ind:focus-visible,.go:focus-visible,.more:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .hint{color:var(--sub);font-size:13px;margin:0}
 .hint a{color:var(--accent)}
+.res-sticky{position:sticky;top:0;z-index:3;background:var(--card);margin:-14px -16px 0;padding:12px 16px 8px;
+  border-radius:12px 12px 0 0;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+.res-sticky.stuck{border-radius:0;box-shadow:0 6px 14px rgb(0 0 0 / .12)}
+.res-sticky .tabs{border-bottom:0}
+#nameQ{flex:none;width:100%;padding:7px 10px;font-size:14px}
+.totop{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(96px,calc(env(safe-area-inset-bottom,0px) + 96px));z-index:15;
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:20px;cursor:pointer;box-shadow:0 4px 14px rgb(0 0 0 / .2)}
+.totop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .res-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 .res-head h2{font-size:17px;margin:0}
 .res-head h2 span{font-size:13px;font-weight:400;color:var(--sub);margin-left:8px;font-variant-numeric:tabular-nums}
 .go{background:var(--accent);color:var(--accent-ink);text-decoration:none;border-radius:8px;padding:6px 14px;font-size:14px;white-space:nowrap}
 .shops{display:flex;flex-direction:column}
-.shop{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.shop{display:grid;grid-template-columns:1fr auto;gap:3px 12px;padding:12px 0;border-top:1px solid var(--line)}
 .shop:first-child{border-top:0}
-.shop b{font-weight:500;min-width:0;word-break:break-word;user-select:all}
+.shop b{font-weight:700;font-size:16px;min-width:0;word-break:break-word;user-select:all}
 .shop .src{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:0 8px;align-self:start;white-space:nowrap}
 .shop .addr,.shop .tel,.shop .links{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
 .shop a{color:var(--accent);text-decoration:none}
 .shop a:hover{text-decoration:underline}
 .shop .tel{color:var(--ink);font-variant-numeric:tabular-nums}
-.shop .links{display:flex;flex-wrap:wrap;gap:4px 14px}
+.shop .links{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13.5px}
+.shop .addr a{color:var(--sub)}
+.ic{display:inline-flex;vertical-align:-2px;margin-right:4px}
+.shop .addr a:hover{color:var(--accent)}
+.shop .links .ph{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:500}
 .shop .no-mail{color:var(--sub);opacity:.7;cursor:default}
 .more{align-self:center;font:inherit;font-size:14px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:8px;padding:7px 18px;cursor:pointer}
 .empty{color:var(--sub);font-size:14px;padding:8px 0}
@@ -101,7 +114,7 @@ select{flex:1 1 140px;max-width:220px}
 .st.cancel{--st:var(--warn);border-style:dashed}
 .st:disabled{cursor:default}
 .sts{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}
-.st{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:2px 10px;cursor:pointer}
+.st{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:3px 12px;min-height:30px;cursor:pointer}
 .st:hover{border-color:var(--st)}
 .st.on{background:var(--st);border-color:var(--st);color:var(--accent-ink)}
 .st-note{font-size:12px;color:var(--sub)}
@@ -117,6 +130,9 @@ select{flex:1 1 140px;max-width:220px}
 .toast button:focus-visible{outline:2px solid var(--accent-soft);border-radius:4px}
 .ind.zero{opacity:.55}
 @media (max-width:480px){
+  .step{padding:12px 14px}
+  .res-sticky{margin:-12px -14px 0;padding:10px 14px 8px}
+  .chip{padding:6px 13px}
   .tabs{gap:0}
   .tab{padding:8px 4px;font-size:13px;flex:1 1 auto}
   .tab .n{margin-left:2px}
@@ -126,6 +142,7 @@ select{flex:1 1 140px;max-width:220px}
 .dlg .row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
 </style>
 
+<button class="totop" id="toTop" hidden aria-label="回到上方">↑</button>
 <div class="toast" id="toast" role="status" hidden><span></span><button type="button">復原</button></div>
 
 <dialog class="dlg" id="otherDlg" aria-labelledby="otherTitle">
@@ -142,7 +159,6 @@ select{flex:1 1 140px;max-width:220px}
   <header class="top">
     <div>
       <h1>域見夥伴</h1>
-      <p class="lead">開發客戶用：選產品和地區，列出可以合作的夥伴和會用到這個產品的潛在客戶，點產業就列出這一區的店家名單。</p>
     </div>
     <div class="user">
       <button class="btn" id="userBtn" hidden aria-haspopup="true" aria-expanded="false"></button>
@@ -152,6 +168,7 @@ select{flex:1 1 140px;max-width:220px}
       </div>
     </div>
   </header>
+  <p class="lead">選產品和地區，列出可以合作的夥伴和會用到這個產品的潛在客戶；點產業就列出這一區的店家名單。</p>
 
   <section class="step gate" id="gate" hidden>
     <h2>請先登入</h2>
@@ -172,10 +189,7 @@ select{flex:1 1 140px;max-width:220px}
       <input id="q" placeholder="或自行輸入產品，例如：沙發" maxlength="20" aria-label="自行輸入產品">
       <button class="btn solid">搜尋</button>
     </form>
-  </section>
-
-  <section class="step">
-    <div class="label">地區</div>
+    <div class="label sep">地區</div>
     <div class="row">
       <select id="county" aria-label="縣市"></select>
       <select id="district" aria-label="鄉鎮市區"></select>
@@ -189,11 +203,14 @@ select{flex:1 1 140px;max-width:220px}
   </section>
 
   <section class="step" id="result" hidden>
+    <div class="res-sticky" id="resSticky">
     <div class="res-head">
       <h2 id="resTitle"></h2>
       <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
     </div>
     <div class="tabs" id="tabs" role="tablist"></div>
+    <input type="search" id="nameQ" placeholder="在名單裡找店名、地址或電話" aria-label="在名單裡找店名、地址或電話" maxlength="30">
+    </div>
     <div class="shops" id="shops"></div>
     <button class="more" id="more" hidden>顯示更多</button>
     <p class="hint" id="source"></p>
@@ -442,6 +459,7 @@ async function loadRows(info, ci) {
 
 /* 載入目前產業在所選縣市／鄉鎮的名單，再交給 render() 依路名、狀態分頁顯示 */
 async function showList() {
+  $('nameQ').value = '';
   if (!current) { fillRoad(null); return; }
   const county = $('county').value, district = $('district').value, area = county + district;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
@@ -655,7 +673,7 @@ function render(keep) {
     b.setAttribute('aria-selected', String(tab === id));
     b.textContent = label;
     b.insertAdjacentHTML('beforeend', `<span class="n">${n.toLocaleString()}</span>`);
-    b.onclick = () => { tab = id; render(); };
+    b.onclick = () => { tab = id; render(); toResult(); };
     tabs.appendChild(b);
   };
   if (statusOk) {
@@ -667,14 +685,18 @@ function render(keep) {
   const title = $('resTitle');
   title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
   const sub = document.createElement('span');
-  view = tab === 'list' ? listItems : byStatus[tab];
-  sub.textContent = area + '・' + view.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（「' + product + '」所有產業）');
+  // 店名搜尋：店名、地址、電話有包含就列出
+  const nq = $('nameQ').value.trim().toLowerCase();
+  const all = tab === 'list' ? listItems : byStatus[tab];
+  view = nq ? all.filter(it => (it.name + ' ' + (it.addr || '') + ' ' + (it.phone || '')).toLowerCase().includes(nq)) : all;
+  sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（「' + product + '」所有產業）');
   title.appendChild(sub);
 
   const box = $('shops'); box.innerHTML = '';
   shown = 0;
   let note = '';
-  if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
+  if (nq && all.length && !view.length) note = `找不到符合「${nq}」的店家。`;
+  else if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
   else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`;
   if (note) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = note; box.appendChild(e); }
   do more(); while (shown < Math.min(keepN, view.length));
@@ -684,6 +706,21 @@ function render(keep) {
   $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
     `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話、信箱、粉專，本區有電話 ${withPhone} 家）。` +
     (manifest && manifest.updated ? `資料更新：${manifest.updated}。` : '');
+}
+
+/* 卡片上的小圖示（跟著文字顏色） */
+const ICONS = {
+  pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  fb: '<path d="M15 3h-2a4 4 0 0 0-4 4v3H7v4h2v7h4v-7h3l1-4h-4V7a1 1 0 0 1 1-1h2z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'
+};
+function icon(name) {
+  const i = document.createElement('span'); i.className = 'ic';
+  i.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+  return i;
 }
 
 function card(it) {
@@ -696,27 +733,23 @@ function card(it) {
   const link = document.createElement('a');
   link.target = '_blank'; link.rel = 'noopener';
   link.href = mapUrl(it.addr ? it.name + ' ' + it.addr : (it.lat ? it.lat + ',' + it.lon : it.name));
-  link.textContent = it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）');
+  link.append(icon('pin'), it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）'));
   a.appendChild(link);
   d.append(b, s, a);
-  if (it.phone) {
-    // 手機上點了直接撥號
-    const t = document.createElement('div'); t.className = 'tel'; t.textContent = '電話 ';
-    const tel = document.createElement('a'); tel.href = 'tel:' + it.phone.replace(/[^\d+#]/g, ''); tel.textContent = it.phone;
-    t.appendChild(tel); d.appendChild(t);
-  }
   // 信箱、粉專、官網：開放地圖有才顯示；沒有粉專就給「找粉專」（用店名＋縣市搜尋 Facebook）
   const ct = it.ct || {}, ln = document.createElement('div'); ln.className = 'links';
-  const add = (href, text, title) => {
-    const x = document.createElement('a'); x.href = href; x.textContent = text; x.title = title;
+  const add = (href, ic, text, title) => {
+    const x = document.createElement('a'); x.href = href; x.append(icon(ic), text); x.title = title;
     if (!href.startsWith('mailto:')) { x.target = '_blank'; x.rel = 'noopener'; }
     ln.appendChild(x);
   };
-  if (ct.e) add('mailto:' + ct.e, '✉ ' + ct.e, '寄信');
-  else { const x = document.createElement('span'); x.className = 'no-mail'; x.textContent = '✉ 無信箱'; x.title = '公開資料沒有這家店的信箱'; ln.appendChild(x); }
-  if (ct.f) add(ct.f, '粉絲專頁', '打開 Facebook 粉絲專頁');
-  else add('https://www.google.com/search?q=' + encodeURIComponent(it.name + ' ' + (manifest ? manifest.counties[it.ci] || '' : '') + ' facebook'), '找粉專', '用店名搜尋 Facebook 粉絲專頁');
-  if (ct.w) add(ct.w, '官網', '打開官方網站');
+  if (it.phone) add('tel:' + it.phone.replace(/[^\d+#]/g, ''), 'phone', it.phone, '撥打電話');  // 手機上點了直接撥號
+  if (ln.lastChild) ln.lastChild.className = 'ph';
+  if (ct.e) add('mailto:' + ct.e, 'mail', ct.e, '寄信');
+  else { const x = document.createElement('span'); x.className = 'no-mail'; x.append(icon('mail'), '無信箱'); x.title = '公開資料沒有這家店的信箱'; ln.appendChild(x); }
+  if (ct.f) add(ct.f, 'fb', '粉絲專頁', '打開 Facebook 粉絲專頁');
+  else add('https://www.google.com/search?q=' + encodeURIComponent(it.name + ' ' + (manifest ? manifest.counties[it.ci] || '' : '') + ' facebook'), 'search', '找粉專', '用店名搜尋 Facebook 粉絲專頁');
+  if (ct.w) add(ct.w, 'web', '官網', '打開官方網站');
   d.appendChild(ln);
   if (statusOk) {
     const cur = statuses[it.key];
@@ -772,6 +805,19 @@ function more() {
   $('more').textContent = `顯示更多（還有 ${(view.length - shown).toLocaleString()} 家）`;
 }
 $('more').onclick = more;
+$('nameQ').oninput = () => render();
+/* 切換分頁時，如果已經往下捲，回到名單開頭 */
+function toResult() {
+  const top = $('result').getBoundingClientRect().top;
+  if (top < 0) scrollTo(0, scrollY + top - 8);
+}
+/* 捲動時：名單標題貼在上方時加陰影；捲很下面時出現「回到上方」 */
+addEventListener('scroll', () => {
+  const r = $('result');
+  $('resSticky').classList.toggle('stuck', !r.hidden && r.getBoundingClientRect().top < 0);
+  $('toTop').hidden = scrollY < 900;
+}, { passive: true });
+$('toTop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
 
 const saved = load('product');
 if (saved && saved.length <= 20) product = saved;
