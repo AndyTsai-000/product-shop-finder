@@ -777,7 +777,7 @@ async function setStatus(item, s) {
   }
   // 店家會移到別的分頁，告訴使用者去哪了，並可以復原
   const undo = !prev || prev.p === P ? () => setStatus(item, prev ? prev.s : '') : null;
-  const where = page === 'find' ? `，可到「${STATUS_NAME[next]}」分頁查看` : '';
+  const where = page === 'find' ? `，可到「${STATUS_NAME[next]}」分頁查看` : page === 'rec' ? '，已從推薦移到「我的客戶」' : '';
   flash(next ? `「${item.name}」已標記為「${STATUS_NAME[next]}」${where}。` : `已取消「${item.name}」的狀態${page === 'find' ? '，回到名單' : ''}。`, undo);
 }
 /* ---------- 跟進紀錄＋下次聯絡日期（只有標記的人可以寫，別人可以看）---------- */
@@ -1184,12 +1184,13 @@ const mine = () => !me ? [] : allStatus.filter(r => r.uid === me.id);
 function updatePageCounts() {
   $('pages').hidden = !statusOk;
   $('pgMineN').textContent = statusOk ? mine().length || '' : '';
-  const left = recItems.filter(r => !allStatus.some(x => x.key === r.key && x.p === r.p)).length;
-  $('pgRecN').textContent = left || '';
+  $('pgRecN').textContent = statusOk ? recLeft().length || '' : '';
 }
 
 /* 今日推薦：伺服器記住今天推薦給誰，同事之間不重複 */
 let recItems = [], recBusy = false, recMsg = '';
+/* 還沒有人標記的推薦（標記後就從推薦拿掉，按「復原」會回來） */
+const recLeft = () => recItems.filter(r => !allStatus.some(x => x.key === r.key));
 async function loadRec() {
   try { recItems = (await api('/recommend')).items; } catch (e) { recMsg = errText(e); renderRec(); return; }
   recMsg = '';
@@ -1244,7 +1245,8 @@ async function genRec() {
 $('recGo').onclick = () => genRec();
 function renderRec() {
   const box = $('recList'); box.innerHTML = '';
-  const done = recItems.filter(r => allStatus.some(x => x.key === r.key && x.p === r.p)).length;
+  // 已標記的（任何人、任何產品）不再顯示，只算進度
+  const left = recLeft(), done = recItems.length - left.length;
   const prods = [...new Set(recItems.map(r => r.p))];
   $('recSub').textContent = recItems.length ? (prods.join('、') + '・' + (load('recArea') || '').split('・').pop()) : '';
   $('recGo').disabled = recBusy;
@@ -1252,12 +1254,13 @@ function renderRec() {
   $('recProgBox').hidden = !recItems.length;
   $('recBar').style.width = (recItems.length ? done / recItems.length * 100 : 0) + '%';
   $('recProg').textContent = `已處理 ${done} / ${recItems.length} 家`;
-  if (recMsg || !recItems.length) {
+  if (recMsg || !left.length) {
     const e = document.createElement('div'); e.className = 'empty';
-    e.textContent = recMsg || (product ? `按「開始推薦」，從「${product}」・${$('district').value || $('county').value || '（先選縣市）'}挑今天要聯絡的店家。` : '先在上面輸入產品、選縣市，再按「開始推薦」。');
+    e.textContent = recMsg || (recItems.length ? `今天的推薦都處理完了！按「換一批」可以再推薦 15 家。標記過的店家可以到「我的客戶」查看。`
+      : product ? `按「開始推薦」，從「${product}」・${$('district').value || $('county').value || '（先選縣市）'}挑今天要聯絡的店家。` : '先在上面輸入產品、選縣市，再按「開始推薦」。');
     box.appendChild(e);
   }
-  for (const r of recItems) box.appendChild(card({ key: r.key, name: r.name, ci: r.ci, d: r.d, addr: r.addr, phone: r.phone, src: -1, ind: r.ind, P: r.p, why: r.why }));
+  for (const r of left) box.appendChild(card({ key: r.key, name: r.name, ci: r.ci, d: r.d, addr: r.addr, phone: r.phone, src: -1, ind: r.ind, P: r.p, why: r.why }));
 }
 
 /* 我的客戶：自己標記的店家（所有產品），可以依狀態、產品篩選、搜尋、匯出 */
