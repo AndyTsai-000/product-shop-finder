@@ -7,6 +7,10 @@
 //   GET  /notes?key=&p=   （要登入）        → 這家店在這個產品下的跟進紀錄 [{id, uid, by, t, text}]（新到舊）
 //   POST /notes           （要登入）{key, p, text} → 新增一則跟進紀錄（只有標記這家店的人可以寫）
 //   POST /notes/delete    （要登入）{id}    → 刪除自己寫的跟進紀錄
+//   POST /contact         （要登入）{key, p, cn, cj, cm} → 聯絡窗口（姓名、職稱、手機；只有標記的人可以改）
+//   GET  /notes/mine      （要登入）        → 我標記的店家的全部跟進紀錄（匯出用）
+//   GET  /recommend       （要登入）        → {day, items}：今天推薦給我的店家
+//   POST /recommend       （要登入）{items} → 從前台挑好的候選（已排序）裡，去掉已有人標記、7 天內推薦給別人的，存成今天的推薦（換一批會換掉還沒標記的）
 //   POST /next            （要登入）{key, p, nx} → 設定下次聯絡日期（YYYY-MM-DD，空字串＝清除；只有標記的人可以設）
 //   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
 // 同一個帳號在別的瀏覽器登入後，舊瀏覽器的 me 會多 other: {t, ua}（最後一次登入的時間、裝置），前台跳提醒
@@ -19,6 +23,8 @@
 //   POST /admin/status    {key, p, s}       → 改狀態或取消（s 空字串）
 //   GET  /admin/notes?key=&p=               → 跟進紀錄
 //   POST /admin/notes/delete {id}           → 刪除一則跟進紀錄
+//   GET  /admin/notes/all                   → 全部跟進紀錄（匯出用）
+//   GET  /admin/report?since=<毫秒>          → 統計報表（每人的電聯／拜訪／合作數、跟進則數、各產品狀態）
 //   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
 //   POST /admin/users     {oldId?, id, name, role} → 新增（沒有 oldId）或修改（可改編號、姓名、權限）
 //   POST /admin/users/delete {id}           → 刪除使用者
@@ -37,6 +43,9 @@ const AI_MODEL = '@cf/openai/gpt-oss-120b';
 const MAX_AI_PER_HOUR = 100;
 const MAX_NOTES_PER_HOUR = 300;
 const NOTE_LEN = 500;
+const REC_N = 15;             // 每天推薦幾家
+const REC_DAYS_OTHERS = 7;    // 推薦給別人的店家，幾天內不再推薦給其他人
+const twDay = (t = Date.now()) => new Date(t + 8 * 3600e3).toISOString().slice(0, 10);
 
 export default {
   async fetch(req, rawEnv) {
@@ -57,6 +66,10 @@ async function route(req, env, url) {
   if (p === '/login' && m === 'POST') return userLogin(req, env);
   if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env) }; }
   if (p === '/status' && m === 'POST') { const me = await needUser(req, env); return saveStatus(req, env, me); }
+  if (p === '/notes/mine' && m === 'GET') { const me = await needUser(req, env); return myNotes(env, me); }
+  if (p === '/contact' && m === 'POST') { const me = await needUser(req, env); return setContact(req, env, me); }
+  if (p === '/recommend' && m === 'GET') { const me = await needUser(req, env); return getRecs(env, me); }
+  if (p === '/recommend' && m === 'POST') { const me = await needUser(req, env); return makeRecs(req, env, me); }
   if (p === '/notes' && m === 'GET') { await needUser(req, env); return listNotes(env, url); }
   if (p === '/notes' && m === 'POST') { const me = await needUser(req, env); return addNote(req, env, me); }
   if (p === '/notes/delete' && m === 'POST') { const me = await needUser(req, env); return deleteNote(req, env, me); }
@@ -70,6 +83,8 @@ async function route(req, env, url) {
     if (p === '/admin/status' && m === 'GET') return listStatus(env);
     if (p === '/admin/status' && m === 'POST') return adminSetStatus(req, env);
     if (p === '/admin/notes' && m === 'GET') return listNotes(env, url);
+    if (p === '/admin/notes/all' && m === 'GET') return allNotes(env);
+    if (p === '/admin/report' && m === 'GET') return report(env, url);
     if (p === '/admin/notes/delete' && m === 'POST') return deleteNote(req, env, null);
     if (p === '/admin/users' && m === 'GET') return listUsers(env);
     if (p === '/admin/users' && m === 'POST') return saveUser(req, env);
@@ -185,7 +200,7 @@ async function userLogin(req, env) {
 
 /* nx 下次聯絡日期、nn 跟進紀錄幾則、nl 最新一則（前 80 字） */
 async function listStatus(env) {
-  const { results } = await env.DB.prepare(`SELECT s.key, s.p, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx,
+  const { results } = await env.DB.prepare(`SELECT s.key, s.p, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx, s.cn, s.cj, s.cm,
     (SELECT COUNT(*) FROM notes n WHERE n.key = s.key AND n.p = s.p) AS nn,
     (SELECT substr(n.text, 1, 80) FROM notes n WHERE n.key = s.key AND n.p = s.p ORDER BY n.id DESC LIMIT 1) AS nl
     FROM status s`).all();
@@ -229,6 +244,86 @@ async function deleteNote(req, env, me) {
   if (me && row.uid !== me.id) fail('只能刪除自己寫的紀錄', 403);
   await env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(id).run();
   return { ok: true };
+}
+
+async function setContact(req, env, me) {
+  const b = await body(req);
+  const key = str(b.key, 40), p = str(b.p, 20);
+  await ownStatus(env, me, key, p);
+  const cn = str(b.cn, 30), cj = str(b.cj, 30), cm = str(b.cm, 30);
+  await env.DB.prepare('UPDATE status SET cn = ?, cj = ?, cm = ? WHERE key = ? AND p = ?').bind(cn || null, cj || null, cm || null, key, p).run();
+  return { ok: true };
+}
+
+async function myNotes(env, me) {
+  const { results } = await env.DB.prepare(`SELECT n.key, n.p, n.t, n.by, n.text FROM notes n
+    JOIN status s ON s.key = n.key AND s.p = n.p WHERE s.uid = ? ORDER BY n.id`).bind(me.id).all();
+  return results;
+}
+
+async function allNotes(env) {
+  const { results } = await env.DB.prepare('SELECT key, p, t, by, uid, text FROM notes ORDER BY id').all();
+  return results;
+}
+
+/* ---------- 每日推薦 ---------- */
+
+async function getRecs(env, me) {
+  const day = twDay();
+  const { results } = await env.DB.prepare('SELECT key, p, name, addr, phone, ind, ci, d, why FROM recs WHERE day = ? AND uid = ? ORDER BY ord').bind(day, me.id).all();
+  return { day, items: results };
+}
+
+async function makeRecs(req, env, me) {
+  if (me.role !== 'user') fail('你的權限只能查看', 403);
+  const b = await body(req);
+  const cand = (Array.isArray(b.items) ? b.items : []).slice(0, 300);
+  if (!cand.length) fail('沒有可以推薦的店家');
+  const day = twDay(), since = twDay(Date.now() - REC_DAYS_OTHERS * 864e5);
+  const keys = [...new Set(cand.map(c => str(c.key, 40)).filter(k => /^[csnwr]\d{1,20}$/.test(k)))];
+  const busy = new Set();
+  // 有人標記過（任何產品）、或最近推薦給別人的，都跳過；分批查，避免參數太多
+  for (let i = 0; i < keys.length; i += 90) {
+    const part = keys.slice(i, i + 90), q = part.map(() => '?').join(',');
+    const a = await env.DB.prepare(`SELECT key FROM status WHERE key IN (${q})`).bind(...part).all();
+    const r = await env.DB.prepare(`SELECT key FROM recs WHERE key IN (${q}) AND day >= ? AND uid != ?`).bind(...part, since, me.id).all();
+    a.results.concat(r.results).forEach(x => busy.add(x.key));
+  }
+  // 換一批：今天推薦過、還沒標記的換掉；已經標記的留著
+  const { results: mine } = await env.DB.prepare('SELECT key, p FROM recs WHERE day = ? AND uid = ?').bind(day, me.id).all();
+  const old = new Set(mine.map(r => r.key));
+  const pick = [];
+  for (const c of cand) {
+    const key = str(c.key, 40), p = str(c.p, 20);
+    if (!p || !keys.includes(key) || busy.has(key) || old.has(key) || pick.some(x => x.key === key)) continue;
+    pick.push({ key, p, name: str(c.name, 100), addr: str(c.addr, 200), phone: str(c.phone, 30), ind: str(c.ind, 30),
+      ci: Number.isInteger(c.ci) ? c.ci : null, d: str(c.d, 10), why: str(c.why, 60) });
+    if (pick.length >= REC_N) break;
+  }
+  if (!pick.length) fail('這個地區沒有新的店家可以推薦了，可以換個地區或產品');
+  const stmts = [
+    env.DB.prepare('DELETE FROM recs WHERE day < ?').bind(twDay(Date.now() - 30 * 864e5)),
+    env.DB.prepare('DELETE FROM recs WHERE day = ? AND uid = ? AND key NOT IN (SELECT key FROM status)').bind(day, me.id),
+  ];
+  pick.forEach((c, i) => stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO recs (day, uid, key, p, name, addr, phone, ind, ci, d, why, ord)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).bind(day, me.id, c.key, c.p, c.name, c.addr, c.phone, c.ind, c.ci, c.d, c.why, 1000 + i)));
+  await env.DB.batch(stmts);
+  return getRecs(env, me);
+}
+
+/* ---------- 統計報表（後台）---------- */
+
+async function report(env, url) {
+  const since = parseInt(url.searchParams.get('since') || '0', 10) || 0;
+  const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).all().then(r => r.results);
+  const [users, acts, notes, now, prods] = await Promise.all([
+    q('SELECT id, name, role FROM users ORDER BY id'),
+    q(`SELECT uid, s, COUNT(DISTINCT key || '|' || p) AS n FROM log WHERE t >= ? AND uid IS NOT NULL AND s != '' GROUP BY uid, s`, since),
+    q('SELECT uid, COUNT(*) AS n FROM notes WHERE t >= ? GROUP BY uid', since),
+    q('SELECT uid, s, COUNT(*) AS n FROM status GROUP BY uid, s'),
+    q('SELECT p, s, COUNT(*) AS n FROM status GROUP BY p, s'),
+  ]);
+  return { users, acts, notes, now, prods };
 }
 
 async function setNext(req, env, me) {
@@ -403,6 +498,7 @@ async function saveUser(req, env) {
     env.DB.prepare('UPDATE users SET id = ?, name = ?, role = ? WHERE id = ?').bind(id, name, role, oldId),
     env.DB.prepare('UPDATE status SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
     env.DB.prepare('UPDATE notes SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
+    env.DB.prepare('UPDATE recs SET uid = ? WHERE uid = ?').bind(id, oldId),
   ]);
   return { ok: true };
 }

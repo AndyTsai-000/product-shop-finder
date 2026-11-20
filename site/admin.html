@@ -87,6 +87,14 @@ input{flex:1 1 180px}
 .note .meta{display:flex;gap:8px;align-items:center}
 .note .btn{padding:1px 10px;font-size:12px}
 .due{color:var(--warn);font-weight:500}
+.tbl-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+table.tbl{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left;white-space:normal;min-width:90px}
+.tbl th{font-size:12px;color:var(--sub);font-weight:700}
+.tbl tr.tot td{font-weight:700;border-bottom:0}
+.tbl .z{color:var(--sub)}
+h3{font-size:15px;margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -110,6 +118,7 @@ input{flex:1 1 180px}
     <nav class="tabs" role="tablist">
       <button class="tab on" data-tab="status" role="tab">狀態</button>
       <button class="tab" data-tab="users" role="tab">使用者</button>
+      <button class="tab" data-tab="report" role="tab">報表</button>
       <button class="tab" data-tab="log" role="tab">修改紀錄</button>
       <button class="tab" data-tab="acct" role="tab">帳號設定</button>
     </nav>
@@ -121,7 +130,10 @@ input{flex:1 1 180px}
         <select id="fStatus" aria-label="狀態"></select>
         <input id="fText" placeholder="搜尋店家、地址、標記人" aria-label="搜尋">
       </div>
-      <p class="hint" id="statusSum"></p>
+      <div class="row" style="justify-content:space-between">
+        <p class="hint" id="statusSum"></p>
+        <button class="btn" id="statusExport">匯出 Excel</button>
+      </div>
       <div class="list" id="statusList"></div>
       <button class="btn more" id="statusMore" hidden>顯示更多</button>
     </section>
@@ -135,6 +147,15 @@ input{flex:1 1 180px}
       </form>
       <p class="hint">同事用「使用者編號＋姓名」登入。權限：一般＝可以標記，只能修改自己標的（別人標的只有後台能改）；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。</p>
       <div class="list" id="userList"></div>
+    </section>
+
+    <section class="card" id="tab-report" hidden>
+      <div class="row" id="repRange" role="group" aria-label="時間範圍"></div>
+      <p class="hint">「電聯／拜訪／合作／無意願」是這段期間每個人標記的店家數（同一家店同一個產品只算一次）；「目前」是現在每個人手上的客戶。成交率＝合作中 ÷ 全部標記。修改紀錄清除後，之前的動作就不會算進來。</p>
+      <h3>每個人</h3>
+      <div class="tbl-wrap"><table class="tbl" id="repUsers"></table></div>
+      <h3>各產品（目前）</h3>
+      <div class="tbl-wrap"><table class="tbl" id="repProds"></table></div>
     </section>
 
     <section class="card" id="tab-acct" hidden>
@@ -215,9 +236,9 @@ let tab = 'status';
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   tab = b.dataset.tab;
   document.querySelectorAll('.tab').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
-  ['status', 'users', 'log', 'acct'].forEach(t => $('tab-' + t).hidden = t !== tab);
+  ['status', 'users', 'report', 'log', 'acct'].forEach(t => $('tab-' + t).hidden = t !== tab);
   showMsg('');
-  ({ status: loadStatus, users: loadUsers, log: () => loadLog(false), acct: loadAcct })[tab]();
+  ({ status: loadStatus, users: loadUsers, report: loadReport, log: () => loadLog(false), acct: loadAcct })[tab]();
 });
 
 /* ---------- 狀態 ---------- */
@@ -239,7 +260,7 @@ async function loadStatus() {
 function renderStatus() {
   const p = $('fProd').value, s = $('fStatus').value, q = $('fText').value.trim();
   filtered = statuses.filter(r => (!p || (p === '(舊)' ? !r.p : r.p === p)) && (!s || r.s === s) &&
-    (!q || [r.name, r.addr, r.by, r.ind, r.nl].some(v => (v || '').includes(q)))).sort((a, b) => b.t - a.t);
+    (!q || [r.name, r.addr, r.by, r.ind, r.nl, r.cn, r.cm].some(v => (v || '').includes(q)))).sort((a, b) => b.t - a.t);
   const counts = STATUS.map(([k, n]) => `${n} ${filtered.filter(r => r.s === k).length}`).join('・');
   $('statusSum').textContent = `共 ${filtered.length} 家（${counts}）`;
   $('statusList').innerHTML = filtered.length ? '' : '<div class="empty">沒有符合的狀態。</div>';
@@ -259,6 +280,7 @@ function statusItem(r) {
   it.append(el('b', '', r.name), el('span', 'pill s-' + r.s, SNAME[r.s] || r.s));
   it.append(el('div', 'meta', `${r.p || '（舊紀錄）'}・${r.ind || ''}・${r.addr || (COUNTIES[r.ci] || '') + (r.d || '')}`));
   it.append(el('div', 'meta', `由 ${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'} 標記・${fmt(r.t)}`));
+  if (r.cn || r.cj || r.cm) it.append(el('div', 'meta', '👤 ' + [r.cn, r.cj, r.cm].filter(Boolean).join('・')));
   if (r.nx || r.nl) {
     const fu = el('div', 'meta');
     if (r.nx) { const x = el('span', r.nx <= ymd(new Date()) ? 'due' : '', '📅 下次聯絡 ' + r.nx); fu.append(x); }
@@ -311,6 +333,83 @@ async function showNotes(r, box, nb) {
     x.append(el('p', '', n.text), m);
     box.append(x);
   }
+}
+
+/* 匯出成 Excel 打得開的 CSV（UTF-8 加 BOM） */
+function downloadCsv(name, rows) {
+  const esc = v => { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const blob = new Blob(['\ufeff' + rows.map(r => r.map(esc).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$('statusExport').onclick = async () => {
+  if (!filtered.length) { showMsg('沒有可以匯出的資料。'); return; }
+  const btn = $('statusExport'); btn.disabled = true; showMsg('');
+  let notes = [];
+  try { notes = await api('/admin/notes/all'); } catch (e) { showMsg('跟進紀錄沒有抓到（' + e.message + '），先匯出其他欄位。'); }
+  const byKey = {};
+  notes.forEach(n => { (byKey[n.key + '|' + n.p] = byKey[n.key + '|' + n.p] || []).push(fmt(n.t) + ' ' + (n.by || '') + '：' + n.text); });
+  const rows = [['產品', '店名', '狀態', '產業', '縣市', '地址', '電話', '標記人編號', '標記人', '最後更新', '聯絡人', '職稱', '聯絡人手機', '下次聯絡', '跟進紀錄']];
+  filtered.forEach(r => rows.push([r.p, r.name, SNAME[r.s] || r.s, r.ind, COUNTIES[r.ci] || '', r.addr, r.phone, r.uid, r.by, fmt(r.t), r.cn, r.cj, r.cm, r.nx, (byKey[r.key + '|' + r.p] || []).join('\n')]));
+  downloadCsv('客戶狀態_' + ymd(new Date()) + '.csv', rows);
+  btn.disabled = false;
+};
+
+/* ---------- 報表 ---------- */
+const REP_RANGES = [['week', '本週'], ['month', '本月'], ['30d', '近 30 天'], ['all', '全部']];
+let repRange = 'month';
+function repSince(r) {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (r === 'week') { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }  // 週一開始
+  if (r === 'month') { d.setDate(1); return d.getTime(); }
+  if (r === '30d') return Date.now() - 30 * 864e5;
+  return 0;
+}
+REP_RANGES.forEach(([k, n]) => {
+  const b = el('button', 'rng' + (k === repRange ? ' on' : ''), n);
+  b.setAttribute('aria-pressed', String(k === repRange));
+  b.onclick = () => {
+    repRange = k;
+    document.querySelectorAll('#repRange .rng').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
+    loadReport();
+  };
+  $('repRange').appendChild(b);
+});
+function table(id, head, rows, total) {
+  const t = $(id); t.innerHTML = '';
+  const tr = el('tr'); head.forEach(h => tr.append(el('th', '', h))); t.append(tr);
+  if (!rows.length) { const r = el('tr'), c = el('td', 'z', '還沒有資料'); c.colSpan = head.length; r.append(c); t.append(r); return; }
+  rows.concat(total ? [total] : []).forEach((row, i) => {
+    const r = el('tr', total && i === rows.length ? 'tot' : '');
+    row.forEach(v => r.append(el('td', v === 0 || v === '0%' ? 'z' : '', String(v))));
+    t.append(r);
+  });
+}
+const rate = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+async function loadReport() {
+  let d;
+  try { d = await api('/admin/report?since=' + repSince(repRange)); } catch (e) { showMsg(e.message); return; }
+  const get = (arr, f) => arr.filter(f).reduce((n, x) => n + x.n, 0);
+  const ids = new Set([...d.users.map(u => u.id), ...d.acts.map(a => a.uid), ...d.now.map(a => a.uid).filter(Boolean)]);
+  const name = id => (d.users.find(u => u.id === id) || {}).name || '（已刪除）';
+  const rows = [...ids].map(id => {
+    const a = s => get(d.acts, x => x.uid === id && x.s === s);
+    const now = get(d.now, x => x.uid === id), deal = get(d.now, x => x.uid === id && x.s === 'deal');
+    return [id + ' ' + name(id), a('call'), a('visit'), a('deal'), a('no'), get(d.notes, x => x.uid === id), now, deal, rate(deal, now)];
+  }).filter(r => r.slice(1, 8).some(v => v)).sort((x, y) => y[7] - x[7] || y[6] - x[6]);
+  const sum = i => rows.reduce((n, r) => n + r[i], 0);
+  table('repUsers', ['姓名', '電聯', '拜訪', '合作', '無意願', '跟進紀錄', '目前客戶', '目前合作中', '成交率'], rows,
+    rows.length > 1 ? ['合計', sum(1), sum(2), sum(3), sum(4), sum(5), sum(6), sum(7), rate(sum(7), sum(6))] : null);
+  const prods = [...new Set(d.prods.map(x => x.p))];
+  const prows = prods.map(p => {
+    const c = s => get(d.prods, x => x.p === p && x.s === s), all = get(d.prods, x => x.p === p);
+    return [p || '（改版前舊紀錄）', c('call'), c('visit'), c('no'), c('deal'), all, rate(c('deal'), all)];
+  }).sort((x, y) => y[5] - x[5]);
+  const ps = i => prows.reduce((n, r) => n + r[i], 0);
+  table('repProds', ['產品', '已電聯', '已拜訪', '無意願', '合作中', '合計', '成交率'], prows,
+    prows.length > 1 ? ['合計', ps(1), ps(2), ps(3), ps(4), ps(5), rate(ps(4), ps(5))] : null);
 }
 
 async function change(r, s, ctrl) {

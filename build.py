@@ -443,6 +443,14 @@ def main():
         if f.endswith('.json'):
             os.remove(os.path.join(OUT, f))
     manifest = {'updated': datetime.date.today().isoformat(), 'counties': COUNTIES, 'industries': {}}
+    # 新開店家：記下每家公司／商號第一次出現在資料裡的月份（raw/seen.json）。
+    # 第一次跑時全部當作舊店（月份空白），之後每月新出現的標上月份，3 個月內算「新開」
+    seen_path = os.path.join(RAW, 'seen.json')
+    first_run = not os.path.exists(seen_path)
+    first_seen = {} if first_run else json.load(open(seen_path, encoding='utf-8'))
+    month = datetime.date.today().strftime('%Y-%m')
+    d0 = datetime.date.today().replace(day=1)
+    new_from = (d0 - datetime.timedelta(days=62)).strftime('%Y-%m')  # 這個月和前兩個月
     for i, (name, spec) in enumerate(INDUSTRIES.items()):
         kw = re.compile(spec['kw'], re.I) if spec.get('kw') else None
         rows, seen = [], set()
@@ -454,7 +462,10 @@ def main():
                 if c not in COUNTIES:
                     continue
                 seen.add(k)
-                rows.append([n, COUNTIES.index(c), d, a, '', src, k])
+                if k not in first_seen:
+                    first_seen[k] = '' if first_run else month
+                fm = first_seen[k]
+                rows.append([n, COUNTIES.index(c), d, a, '', src, k] + ([0, 0, 0, fm] if fm and fm >= new_from else []))
         okw = re.compile(spec['okw']) if spec.get('okw') else None
         filt = spec.get('osm', [])
         for e in osm:
@@ -465,7 +476,7 @@ def main():
                 continue
             seen.add(e['id'])
             rows.append([e['name'], COUNTIES.index(e['county']), e['dist'], e['addr'], e['phone'], 2, e['id'], e['lat'], e['lon']] + ([e['ct']] if e['ct'] else []))
-        # 每列：[名稱, 縣市索引, 行政區, 地址, 電話, 來源(0公司/1商號/2OSM), 代號(c/s+統編 或 OSM n/w/r+id), 緯度, 經度, 聯絡方式{e信箱,f粉專,w官網}（有才放）]
+        # 每列：[名稱, 縣市索引, 行政區, 地址, 電話, 來源(0公司/1商號/2OSM), 代號(c/s+統編 或 OSM n/w/r+id), 緯度, 經度, 聯絡方式{e信箱,f粉專,w官網}（有才放）, 新開的月份（3 個月內的新公司／商號才放，前面補 0）]
         # 有電話的排前面，再依縣市、行政區、地址
         rows.sort(key=lambda r: (r[1], r[2], r[4] == '', r[3] == '', r[3], r[0]))
         fid = f'i{i}'
@@ -487,6 +498,8 @@ def main():
         manifest['industries'][name] = entry
         print(f'  {name}: {len(rows)} 家（OSM {entry["osm"]}）', flush=True)
     total = sum(e['n'] for e in manifest['industries'].values())
+    json.dump(first_seen, open(seen_path, 'w', encoding='utf-8'), separators=(',', ':'))
+    manifest['newFrom'] = new_from
     json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
     size = sum(os.path.getsize(os.path.join(OUT, f)) for f in os.listdir(OUT))
     print(json.dumps({'industries': len(INDUSTRIES), 'shops': total, 'old': old_total, 'files': len(os.listdir(OUT)), 'MB': round(size / 1e6, 1)}, ensure_ascii=False))

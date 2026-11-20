@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS status (
   name TEXT, addr TEXT, ind TEXT, ci INTEGER, d TEXT, phone TEXT,
   uid TEXT,                   -- 標記人編號
   nx TEXT,                    -- 下次聯絡日期 YYYY-MM-DD
+  cn TEXT, cj TEXT, cm TEXT,  -- 聯絡窗口：姓名、職稱、手機
   PRIMARY KEY (key, p)
 );
 -- 修改紀錄（誤改時可以查回來）
@@ -49,3 +50,14 @@ CREATE TABLE IF NOT EXISTS notes (
   uid TEXT, by TEXT, t INTEGER NOT NULL, text TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS notes_kp ON notes(key, p);
+CREATE TABLE IF NOT EXISTS recs (
+  day TEXT NOT NULL,        -- 台灣日期 YYYY-MM-DD
+  uid TEXT NOT NULL,        -- 推薦給誰
+  key TEXT NOT NULL, p TEXT NOT NULL,
+  name TEXT, addr TEXT, phone TEXT, ind TEXT, ci INTEGER, d TEXT,
+  why TEXT,                 -- 推薦原因
+  ord INTEGER,              -- 排序
+  PRIMARY KEY (day, key, p)
+);
+CREATE INDEX IF NOT EXISTS recs_uid ON recs(uid, day);
+CREATE INDEX IF NOT EXISTS recs_key ON recs(key, day);

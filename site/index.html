@@ -140,6 +140,7 @@ select{flex:1 1 140px;max-width:220px}
 .toast button:focus-visible{outline:2px solid var(--accent-soft);border-radius:4px}
 .ind.zero{opacity:.55}
 @media (max-width:480px){
+  .pg{font-size:14px;padding:8px 2px}
   .step{padding:12px 14px}
   .res-sticky{margin:-12px -14px 0;padding:10px 14px 8px}
   .chip{padding:6px 13px}
@@ -189,6 +190,32 @@ select{flex:1 1 140px;max-width:220px}
 .due-item .act{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:2px}
 .due-item a{color:var(--accent);text-decoration:none}
 .due-h{font-size:13px;font-weight:700;color:var(--sub);margin:10px 0 2px}
+/* 上方三個頁面：找店家／今日推薦／我的客戶 */
+.pages{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.pg{flex:1 1 0;font:inherit;font-size:15px;border:0;background:none;color:var(--sub);border-radius:9px;padding:8px 6px;cursor:pointer;white-space:nowrap}
+.pg .n{font-size:12px;margin-left:4px;font-variant-numeric:tabular-nums}
+.pg.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.pg:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.prog{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--sub)}
+.prog .bar{flex:1;height:8px;border-radius:99px;background:var(--accent-soft);overflow:hidden}
+.prog .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.why{grid-column:1/-1;font-size:12px;color:var(--accent)}
+.new-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--warn);border-radius:6px;padding:0 6px;margin-left:6px;vertical-align:2px;user-select:none}
+.funnel{display:flex;flex-wrap:wrap;gap:6px}
+.fchip{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 13px;cursor:pointer}
+.fchip .n{font-weight:700;margin-left:5px;font-variant-numeric:tabular-nums;color:var(--st,var(--sub))}
+.fchip.on{background:var(--st,var(--accent));border-color:var(--st,var(--accent));color:var(--accent-ink)}
+.fchip.on .n{color:inherit}
+.fchip:focus-visible,.chip-sm:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fchip.due-f{--st:var(--warn)}
+.chip-sm{font:inherit;font-size:13px;border:1px solid var(--warn);color:var(--warn);background:transparent;border-radius:999px;padding:3px 12px;cursor:pointer;align-self:flex-start}
+.chip-sm.on{background:var(--warn);color:var(--accent-ink)}
+.ct-row{display:flex;flex-wrap:wrap;gap:6px}
+.ct-row input{flex:1 1 120px}
+.ct-row .btn{padding:6px 14px}
+.fu .who{color:var(--ink)}
+.fu a{color:var(--accent)}
+.sum{font-size:13px;color:var(--sub)}
 </style>
 
 <button class="totop" id="toTop" hidden aria-label="回到上方">↑</button>
@@ -219,6 +246,14 @@ select{flex:1 1 140px;max-width:220px}
     </div>
   </div>
   <p class="hint" id="fuNxRead" hidden></p>
+  <span class="label">聯絡窗口</span>
+  <form class="ct-row" id="ctForm">
+    <input id="ctName" maxlength="30" placeholder="姓名" aria-label="聯絡人姓名">
+    <input id="ctTitle" maxlength="30" placeholder="職稱，例如：老闆、店長" aria-label="職稱">
+    <input id="ctMobile" maxlength="30" placeholder="手機" aria-label="聯絡人手機" inputmode="tel">
+    <button class="btn" id="ctSave">儲存</button>
+  </form>
+  <p class="hint" id="ctRead" hidden></p>
   <span class="label">跟進紀錄</span>
   <form class="note-form" id="fuForm">
     <textarea id="fuText" maxlength="500" placeholder="這次聯絡談了什麼，例如：老闆週一休，下週三下午再打" aria-label="新增跟進紀錄"></textarea>
@@ -266,7 +301,12 @@ select{flex:1 1 140px;max-width:220px}
     <div><b id="dueText"></b> <span id="dueSub"></span></div>
     <button class="btn" id="dueOpen">查看</button>
   </div>
-  <section class="step">
+  <nav class="pages" id="pages" hidden>
+    <button class="pg on" data-pg="find">找店家</button>
+    <button class="pg" data-pg="rec">今日推薦<span class="n" id="pgRecN"></span></button>
+    <button class="pg" data-pg="mine">我的客戶<span class="n" id="pgMineN"></span></button>
+  </nav>
+  <section class="step" id="pickStep">
     <div class="label">產品</div>
     <form class="row" id="searchForm">
       <input id="q" placeholder="輸入產品，例如：沙發、淨水器" maxlength="20" aria-label="輸入產品" enterkeyhint="search">
@@ -284,6 +324,31 @@ select{flex:1 1 140px;max-width:220px}
     </div>
   </section>
 
+  <section class="step" id="pgRec" hidden>
+    <div class="res-head">
+      <h2>今日推薦<span id="recSub"></span></h2>
+      <button class="btn solid" id="recGo">換一批</button>
+    </div>
+    <p class="hint" id="recHint">從上面的產品和地區，每天挑 15 家還沒有人聯絡的店家給你。新開的、有電話或粉專的、你們拜訪過的店附近的排前面；同事之間不會推薦到同一家。</p>
+    <div class="prog" id="recProgBox" hidden><div class="bar"><i id="recBar"></i></div><span id="recProg"></span></div>
+    <div class="shops" id="recList"></div>
+  </section>
+
+  <section class="step" id="pgMine" hidden>
+    <div class="res-head">
+      <h2>我的客戶<span id="mineSub"></span></h2>
+      <button class="btn" id="mineExport">匯出 Excel</button>
+    </div>
+    <div class="funnel" id="mineFunnel"></div>
+    <div class="row">
+      <select id="mineProd" aria-label="產品"></select>
+      <input type="search" id="mineQ" placeholder="找店名、地址、聯絡人、紀錄" aria-label="搜尋我的客戶" maxlength="30">
+    </div>
+    <p class="sum" id="mineSum"></p>
+    <div class="shops" id="mineList"></div>
+    <button class="more" id="mineMore" hidden>顯示更多</button>
+  </section>
+
   <section class="step" id="indStep">
     <div class="label" id="indLabel">相關產業</div>
     <div class="list" id="industries"></div>
@@ -297,6 +362,7 @@ select{flex:1 1 140px;max-width:220px}
     </div>
     <div class="tabs" id="tabs" role="tablist"></div>
     <input type="search" id="nameQ" placeholder="在名單裡找店名、地址或電話" aria-label="在名單裡找店名、地址或電話" maxlength="30">
+    <button class="chip-sm" id="newOnly" hidden aria-pressed="false"></button>
     </div>
     <div class="shops" id="shops"></div>
     <button class="more" id="more" hidden>顯示更多</button>
@@ -396,7 +462,8 @@ function pickProduct(p) {
   renderProducts();
   renderIndustries();
   loadRelated(p);
-  $('indStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (page === 'find') $('indStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  else if (page === 'rec') renderRec();
 }
 
 /* 問伺服器：這個產品的合作夥伴／潛在客戶是哪些產業（第一次要十幾秒，之後會記住） */
@@ -419,7 +486,7 @@ async function loadRelated(p) {
     relErr = e.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路後再按一次搜尋。' : e.message;
   }
   relBusy = '';
-  if (p === product) renderIndustries();
+  if (p === product) { renderIndustries(); if (page === 'rec') renderRec(); }
 }
 $('searchForm').onsubmit = e => { e.preventDefault(); pickProduct($('q').value); };
 
@@ -492,7 +559,7 @@ const mapUrl = q => 'https://www.google.com/maps/search/?api=1&query=' + encodeU
 
 function renderIndustries() {
   const box = $('industries'); box.innerHTML = '';
-  $('indStep').hidden = !product;
+  $('indStep').hidden = !product || page !== 'find';
   if (!product) return;
   $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
   const table = tableOf(product);
@@ -537,11 +604,12 @@ async function loadRows(info, ci) {
 
 /* 載入目前產業在所選縣市／鄉鎮的名單，再交給 render() 依路名、狀態分頁顯示 */
 async function showList() {
-  $('nameQ').value = '';
+  if (page === 'rec') renderRec();
+  $('nameQ').value = ''; newOnly = false;
   if (!current) { fillRoad(null); return; }
   const county = $('county').value, district = $('district').value, area = county + district;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
-  $('result').hidden = false;
+  $('result').hidden = page !== 'find';
   $('resMap').href = mapUrl(currentQ + ' ' + (area || '台灣'));
   const info = infoOf(current);
   areaRows = [];
@@ -621,14 +689,14 @@ async function boot() {
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
   catch (e) { statusOk = false; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
-  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); if (current) render(); if (product) loadRelated(product); }
+  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (product) loadRelated(product); }
 }
 
 function logout(msg) {
   token = ''; setMe(null);
   save('tok', '');
   statusOk = null; allStatus = [];
-  $('userMenu').hidden = true; $('dueBar').hidden = true;
+  $('userMenu').hidden = true; $('dueBar').hidden = true; $('pages').hidden = true; recItems = [];
   ['fuDlg', 'dueDlg'].forEach(id => { if ($(id).open) $(id).close(); });
   $('loginErr').textContent = msg || '';
   showApp(false);
@@ -671,7 +739,7 @@ async function loadStatuses() {
     const changed = JSON.stringify(j.items) !== JSON.stringify(allStatus);
     allStatus = j.items; setMe(j.me); showApp(true); renderDue();
     // 沒有變動就不重畫，免得「顯示更多」展開的店家收回去、畫面跳動
-    if (changed && current) render(true);
+    if (changed) refresh(true);
   } catch (e) { /* 暫時連不上就沿用舊資料，下次再抓 */ }
 }
 setInterval(() => { if (!document.hidden) loadStatuses(); }, 60000);
@@ -685,21 +753,22 @@ async function post(body) {
 }
 /* s：call／visit／no／deal，空字串＝取消 */
 async function setStatus(item, s) {
-  const prev = statuses[item.key];
+  const P = item.P !== undefined ? item.P : product;
+  const prev = item.P !== undefined ? allStatus.find(r => r.key === item.key && r.p === P) : statuses[item.key];
   const next = s;
   if ((prev ? prev.s : '') === next) return;
   if (!canEdit(prev)) { flash(me && me.role === 'view' ? '你的權限只能查看，不能標記。' : `這筆是 ${prev.by} 標記的，只有本人或後台可以修改。`); return; }
   const by = me.name, uid = me.id;
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
-  const rec = { key: item.key, p: product, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
+  const rec = { key: item.key, p: P, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
   // 換狀態時，伺服器會保留下次聯絡日期，跟進紀錄也還在
-  if (prev && prev.p === product) Object.assign(rec, { nx: prev.nx, nn: prev.nn, nl: prev.nl });
+  if (prev && prev.p === P) Object.assign(rec, { nx: prev.nx, nn: prev.nn, nl: prev.nl, cn: prev.cn, cj: prev.cj, cm: prev.cm });
   // 先在畫面上更新，再送到伺服器
-  allStatus = allStatus.filter(r => !(r.key === item.key && (r.p === product || (prev && r.p === prev.p))));
+  allStatus = allStatus.filter(r => !(r.key === item.key && (r.p === P || (prev && r.p === prev.p))));
   if (next) allStatus.push(rec);
-  render(true);
+  refresh(true);
   try {
-    if (prev && prev.p !== product) await post({ key: item.key, p: prev.p, s: '' });  // 舊紀錄改成這個產品的
+    if (prev && prev.p !== P) await post({ key: item.key, p: prev.p, s: '' });  // 舊紀錄改成這個產品的
     await post(rec);
   } catch (e) {
     flash('狀態沒有存成功（' + e.message + '），請再試一次。');
@@ -707,8 +776,9 @@ async function setStatus(item, s) {
     return;
   }
   // 店家會移到別的分頁，告訴使用者去哪了，並可以復原
-  const undo = !prev || prev.p === product ? () => setStatus(item, prev ? prev.s : '') : null;
-  flash(next ? `「${item.name}」已標記為「${STATUS_NAME[next]}」，可到「${STATUS_NAME[next]}」分頁查看。` : `已取消「${item.name}」的狀態，回到名單。`, undo);
+  const undo = !prev || prev.p === P ? () => setStatus(item, prev ? prev.s : '') : null;
+  const where = page === 'find' ? `，可到「${STATUS_NAME[next]}」分頁查看` : '';
+  flash(next ? `「${item.name}」已標記為「${STATUS_NAME[next]}」${where}。` : `已取消「${item.name}」的狀態${page === 'find' ? '，回到名單' : ''}。`, undo);
 }
 /* ---------- 跟進紀錄＋下次聯絡日期（只有標記的人可以寫，別人可以看）---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -744,6 +814,8 @@ function openFollow(rec) {
   $('fuNxBox').hidden = !own; $('fuForm').hidden = !own;
   $('fuNxRead').hidden = own || !rec.nx; $('fuNxRead').textContent = rec.nx ? '📅 ' + nxText(rec.nx) : '';
   $('fuNx').value = rec.nx || ''; $('fuText').value = ''; $('fuErr').textContent = '';
+  $('ctForm').hidden = !own; $('ctName').value = rec.cn || ''; $('ctTitle').value = rec.cj || ''; $('ctMobile').value = rec.cm || '';
+  $('ctRead').hidden = own; $('ctRead').textContent = contactText(rec) || '（沒有填）';
   $('fuNotes').innerHTML = '<div class="empty">載入中…</div>';
   if (!$('fuDlg').open) $('fuDlg').showModal();
   loadNotes();
@@ -783,7 +855,7 @@ function patchRec(rec, f) {
 function syncNotes(rec) {
   const l = rec._list || [];
   patchRec(rec, { nn: l.length, nl: l[0] ? l[0].text.slice(0, 80) : null });
-  if (current) render(true);
+  refresh(true);
   renderDue();
 }
 $('fuForm').onsubmit = async e => {
@@ -803,12 +875,25 @@ async function saveNx(nx) {
   $('fuNx').value = nx; $('fuErr').textContent = '';
   if (nx === old) return;
   patchRec(rec, { nx: nx || null });
-  if (current) render(true);
+  refresh(true);
   renderDue();
   try { await api('/next', { key: rec.key, p: rec.p || '', nx }); flash(nx ? `「${rec.name}」${nxText(nx)}，到時上方會提醒你。` : `已清除「${rec.name}」的下次聯絡日期。`); }
-  catch (e) { patchRec(rec, { nx: old || null }); $('fuNx').value = old; if (current) render(true); renderDue(); $('fuErr').textContent = '沒有存成功：' + errText(e); }
+  catch (e) { patchRec(rec, { nx: old || null }); $('fuNx').value = old; refresh(true); renderDue(); $('fuErr').textContent = '沒有存成功：' + errText(e); }
 }
 $('fuNx').onchange = () => saveNx($('fuNx').value);
+const contactText = r => [r.cn, r.cj, r.cm].filter(Boolean).join('・');
+$('ctForm').onsubmit = async e => {
+  e.preventDefault();
+  const rec = fuRec, f = { cn: $('ctName').value.trim(), cj: $('ctTitle').value.trim(), cm: $('ctMobile').value.trim() };
+  $('ctSave').disabled = true; $('fuErr').textContent = '';
+  try {
+    await api('/contact', { key: rec.key, p: rec.p || '', ...f });
+    patchRec(rec, { cn: f.cn || null, cj: f.cj || null, cm: f.cm || null });
+    refresh(true);
+    flash(`已儲存「${rec.name}」的聯絡窗口。`);
+  } catch (err) { $('fuErr').textContent = '沒有存成功：' + errText(err); }
+  $('ctSave').disabled = false;
+};
 document.querySelectorAll('.qd[data-days]').forEach(b => b.onclick = () => saveNx(addDays(+b.dataset.days)));
 $('fuNxClear').onclick = () => saveNx('');
 document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
@@ -866,7 +951,7 @@ function flash(msg, undo) {
 }
 
 /* ---------- 顯示 ---------- */
-const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ct: r[9] || {}, ind: current });
+const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ct: r[9] || {}, nw: r[10] || '', ind: current });
 const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
 
 /* keep：保留目前已展開的筆數和捲動位置（自動更新、標記時用） */
@@ -878,7 +963,14 @@ function render(keep) {
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
   const inRoad = (addr, d) => !road || roadOf(addr, county, d) === road;
   // 名單分頁：目前產業、還沒有狀態的店家
-  const listItems = areaRows.filter(r => !statuses[r[6]] && inRoad(r[3], r[2])).map(itemOfRow);
+  const listAll = areaRows.filter(r => !statuses[r[6]] && inRoad(r[3], r[2]));
+  const nNew = listAll.filter(r => r[10]).length;
+  if (!nNew) newOnly = false;
+  const listItems = (newOnly ? listAll.filter(r => r[10]) : listAll).map(itemOfRow);
+  const nb = $('newOnly');
+  nb.hidden = tab !== 'list' || !nNew;
+  nb.textContent = newOnly ? `新開 ${nNew} 家（按這裡看全部）` : `只看新開的店 ${nNew} 家`;
+  nb.classList.toggle('on', newOnly); nb.setAttribute('aria-pressed', String(newOnly));
   // 狀態分頁：這個產品所有產業裡、在所選地區的已標記店家（新標記的在前）
   const marked = Object.entries(statuses)
     .filter(([, v]) => (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
@@ -949,8 +1041,9 @@ function card(it) {
   const d = document.createElement('div');
   d.className = 'shop';
   const b = document.createElement('b'); b.textContent = it.name;
+  if (it.nw || /新開/.test(it.why || '')) { const t = document.createElement('span'); t.className = 'new-tag'; t.textContent = '新開'; t.title = '最近 3 個月新登記的公司或商號'; b.appendChild(t); }
   const s = document.createElement('span'); s.className = 'src';
-  s.textContent = it.src >= 0 ? SRC[it.src] : it.ind;
+  s.textContent = it.src >= 0 ? SRC[it.src] : (it.P ? it.P + '・' : '') + (it.ind || '');
   const a = document.createElement('div'); a.className = 'addr';
   const link = document.createElement('a');
   link.target = '_blank'; link.rel = 'noopener';
@@ -958,6 +1051,7 @@ function card(it) {
   link.append(icon('pin'), it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）'));
   a.appendChild(link);
   d.append(b, s, a);
+  if (it.why) { const w = document.createElement('div'); w.className = 'why'; w.textContent = '推薦原因：' + it.why; d.appendChild(w); }
   // 信箱、粉專、官網：開放地圖有才顯示；沒有粉專就給「找粉專」（用店名＋縣市搜尋 Facebook）
   const ct = it.ct || {}, ln = document.createElement('div'); ln.className = 'links';
   const add = (href, ic, text, title) => {
@@ -974,8 +1068,9 @@ function card(it) {
   if (ct.w) add(ct.w, 'web', '官網', '打開官方網站');
   d.appendChild(ln);
   if (statusOk) {
-    const cur = statuses[it.key];
-    const editable = canEdit(cur);
+    const P = it.P !== undefined ? it.P : product;
+    const cur = it.P !== undefined ? allStatus.find(r => r.key === it.key && r.p === P) : statuses[it.key];
+    const editable = canEdit(cur) && P !== '';  // 改版前沒有產品的舊紀錄，要到「找店家」裡改
     const row = document.createElement('div'); row.className = 'sts';
     STATUS.forEach(([k, label]) => {
       if (!editable && !(cur && cur.s === k)) return;  // 不能改的只顯示目前狀態
@@ -1007,6 +1102,12 @@ function card(it) {
       // 跟進：下次聯絡日期、最新一則紀錄；自己標的可以寫，別人標的有紀錄才能看
       const fu = document.createElement('div'); fu.className = 'fu';
       if (cur.nx) { const x = document.createElement('span'); x.className = 'nx' + (cur.nx <= today() ? ' due' : ''); x.textContent = '📅 ' + nxText(cur.nx); fu.appendChild(x); }
+      if (cur.cn || cur.cj || cur.cm) {
+        const x = document.createElement('span'); x.className = 'who';
+        x.textContent = '👤 ' + [cur.cn, cur.cj].filter(Boolean).join(' ') + (cur.cm ? ' ' : '');
+        if (cur.cm) { const a = document.createElement('a'); a.href = 'tel:' + cur.cm.replace(/[^\d+#]/g, ''); a.textContent = cur.cm; x.appendChild(a); }
+        fu.appendChild(x);
+      }
       if (cur.nl) { const x = document.createElement('span'); x.className = 'nl'; x.textContent = '📝 ' + cur.nl; x.title = cur.nl; fu.appendChild(x); }
       if (ownRec(cur) || cur.nn) {
         const x = document.createElement('button'); x.className = 'fu-btn';
@@ -1017,7 +1118,7 @@ function card(it) {
       if (fu.childNodes.length) d.appendChild(fu);
     }
     // 同一家店在其他產品被標過：提醒一下，避免類似產品重複開發同一家
-    const others = allStatus.filter(r => r.key === it.key && r !== cur && r.p !== product);
+    const others = allStatus.filter(r => r.key === it.key && r !== cur && r.p !== P);
     if (others.length) {
       const o = document.createElement('div'); o.className = 'st-other';
       o.textContent = '⚠ ' + others.map(r => {
@@ -1041,6 +1142,8 @@ function more() {
 }
 $('more').onclick = more;
 $('nameQ').oninput = () => render();
+let newOnly = false;
+$('newOnly').onclick = () => { newOnly = !newOnly; render(); };
 /* 切換分頁時，如果已經往下捲，回到名單開頭 */
 function toResult() {
   const top = $('result').getBoundingClientRect().top;
@@ -1053,6 +1156,182 @@ addEventListener('scroll', () => {
   $('toTop').hidden = scrollY < 900;
 }, { passive: true });
 $('toTop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+
+/* ---------- 頁面：找店家／今日推薦／我的客戶 ---------- */
+let page = 'find';
+function refresh(keep) {
+  if (page === 'find') { if (current) render(keep); }
+  else if (page === 'rec') renderRec();
+  else renderMine(keep);
+  updatePageCounts();
+}
+function setPage(pg) {
+  if (!statusOk) pg = 'find';
+  page = pg; save('page', pg);
+  document.querySelectorAll('.pg').forEach(b => { b.classList.toggle('on', b.dataset.pg === pg); b.setAttribute('aria-pressed', String(b.dataset.pg === pg)); });
+  $('pickStep').hidden = pg === 'mine';
+  $('indStep').hidden = pg !== 'find' || !product;
+  $('result').hidden = pg !== 'find' || !current;
+  $('pgRec').hidden = pg !== 'rec';
+  $('pgMine').hidden = pg !== 'mine';
+  if (pg === 'find') { if (current) render(); }
+  else if (pg === 'rec') loadRec();
+  else renderMine();
+  updatePageCounts();
+}
+document.querySelectorAll('.pg').forEach(b => b.onclick = () => { setPage(b.dataset.pg); scrollTo(0, 0); });
+const mine = () => !me ? [] : allStatus.filter(r => r.uid === me.id);
+function updatePageCounts() {
+  $('pages').hidden = !statusOk;
+  $('pgMineN').textContent = statusOk ? mine().length || '' : '';
+  const left = recItems.filter(r => !allStatus.some(x => x.key === r.key && x.p === r.p)).length;
+  $('pgRecN').textContent = left || '';
+}
+
+/* 今日推薦：伺服器記住今天推薦給誰，同事之間不重複 */
+let recItems = [], recBusy = false, recMsg = '';
+async function loadRec() {
+  try { recItems = (await api('/recommend')).items; } catch (e) { recMsg = errText(e); renderRec(); return; }
+  recMsg = '';
+  if (!recItems.length && product && tableOf(product) && $('county').value) { genRec(); return; }
+  renderRec();
+}
+/* 字串 → 0～1 的固定亂數（同一天、同一個人，順序固定；換天就不同） */
+function hashOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
+async function genRec() {
+  const county = $('county').value, district = $('district').value, table = tableOf(product);
+  if (!product || !table) { recMsg = '先在上面輸入產品，再按「換一批」。'; renderRec(); return; }
+  if (!county) { recMsg = '先在上面選縣市（推薦會從這個地區挑），再按「換一批」。'; renderRec(); return; }
+  if (!manifest || recBusy) return;
+  recBusy = true; recMsg = '正在從「' + product + '」相關產業裡挑選…'; renderRec();
+  const ci = manifest.counties.indexOf(county), day = today();
+  const taken = new Set(allStatus.map(r => r.key));
+  // 你們拜訪過、合作中的店家所在的路段：同一條路上的店順路好拜訪
+  const near = new Set(allStatus.filter(r => r.p === product && (r.s === 'visit' || r.s === 'deal') && r.ci === ci)
+    .map(r => r.d + '|' + roadOf(r.addr, county, r.d)).filter(x => !x.endsWith('|')));
+  const best = new Map();
+  for (const [g] of GROUPS) for (const ind of parse(table[g])) {
+    const info = infoOf(ind.name);
+    if (!info || !info.n || !(info.c || {})[ci]) continue;
+    let rows;
+    try { rows = await loadRows(info, ci); } catch (e) { continue; }
+    for (const r of rows) {
+      if (r[1] !== ci || (district && r[2] !== district) || taken.has(r[6])) continue;
+      const why = []; let sc = g === 'client' ? 1 : 0;
+      if (r[10]) { sc += 6; why.push('新開'); }
+      if (r[4]) { sc += 3; why.push('有電話'); }
+      const ct = r[9] || {};
+      if (ct.f || ct.w || ct.e) { sc += 2; why.push(ct.f ? '有粉專' : ct.w ? '有官網' : '有信箱'); }
+      const rd = roadOf(r[3], county, r[2]);
+      if (rd && near.has(r[2] + '|' + rd)) { sc += 2; why.push('附近有拜訪過的店'); }
+      const old = best.get(r[6]);
+      if (old && old.sc >= sc) continue;
+      best.set(r[6], { key: r[6], p: product, name: r[0], addr: r[3], phone: r[4], ind: ind.name, ci: r[1], d: r[2],
+        why: why.join('・') || (g === 'client' ? '潛在客戶' : '合作夥伴'), sc, h: hashOf(r[6] + day + me.id) });
+    }
+  }
+  // 分數高的在前，同分隨機；同一個產業最多先放 3 家，讓推薦多樣一點
+  const sorted = [...best.values()].sort((a, b) => b.sc - a.sc || a.h - b.h);
+  const per = {}, first = [], rest = [];
+  for (const c of sorted) ((per[c.ind] = (per[c.ind] || 0) + 1) <= 3 ? first : rest).push(c);
+  const cands = first.concat(rest).slice(0, 200).map(({ sc, h, ...c }) => c);
+  recBusy = false;
+  if (!cands.length) { recMsg = '這個地區沒有還沒聯絡的店家了，可以換個地區或產品。'; renderRec(); return; }
+  try { recItems = (await api('/recommend', { items: cands })).items; recMsg = ''; save('recArea', product + '・' + (district || county)); }
+  catch (e) { recMsg = errText(e); }
+  renderRec(); updatePageCounts();
+}
+$('recGo').onclick = () => genRec();
+function renderRec() {
+  const box = $('recList'); box.innerHTML = '';
+  const done = recItems.filter(r => allStatus.some(x => x.key === r.key && x.p === r.p)).length;
+  const prods = [...new Set(recItems.map(r => r.p))];
+  $('recSub').textContent = recItems.length ? (prods.join('、') + '・' + (load('recArea') || '').split('・').pop()) : '';
+  $('recGo').disabled = recBusy;
+  $('recGo').textContent = recItems.length ? '換一批' : '開始推薦';
+  $('recProgBox').hidden = !recItems.length;
+  $('recBar').style.width = (recItems.length ? done / recItems.length * 100 : 0) + '%';
+  $('recProg').textContent = `已處理 ${done} / ${recItems.length} 家`;
+  if (recMsg || !recItems.length) {
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = recMsg || (product ? `按「開始推薦」，從「${product}」・${$('district').value || $('county').value || '（先選縣市）'}挑今天要聯絡的店家。` : '先在上面輸入產品、選縣市，再按「開始推薦」。');
+    box.appendChild(e);
+  }
+  for (const r of recItems) box.appendChild(card({ key: r.key, name: r.name, ci: r.ci, d: r.d, addr: r.addr, phone: r.phone, src: -1, ind: r.ind, P: r.p, why: r.why }));
+}
+
+/* 我的客戶：自己標記的店家（所有產品），可以依狀態、產品篩選、搜尋、匯出 */
+let mineF = '', mineShown = 0, mineView = [];
+function renderMine(keep) {
+  const keepN = keep ? mineShown : 0, keepY = scrollY;
+  const all = mine(), t = today();
+  const prods = [...new Set(all.map(r => r.p).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  const sel = $('mineProd'), pv = sel.value;
+  sel.innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${p.replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';')}</option>`).join('');
+  sel.value = prods.includes(pv) ? pv : '';
+  const inP = all.filter(r => !sel.value || r.p === sel.value);
+  // 漏斗：全部 → 待聯絡 → 各狀態
+  const box = $('mineFunnel'); box.innerHTML = '';
+  const chips = [['', '全部', inP.length], ['due', '待聯絡', inP.filter(r => r.nx && r.nx <= t).length], ...STATUS.map(([k, n]) => [k, n, inP.filter(r => r.s === k).length])];
+  chips.forEach(([k, n, c]) => {
+    const b = document.createElement('button');
+    b.className = 'fchip' + (k === 'due' ? ' due-f' : k ? ' s-' + k : '') + (mineF === k ? ' on' : '');
+    b.setAttribute('aria-pressed', String(mineF === k));
+    b.textContent = n; b.insertAdjacentHTML('beforeend', `<span class="n">${c}</span>`);
+    b.onclick = () => { mineF = k; renderMine(); };
+    box.appendChild(b);
+  });
+  const deal = inP.filter(r => r.s === 'deal').length;
+  $('mineSub').textContent = all.length + ' 家';
+  $('mineSum').textContent = inP.length ? `合作中 ${deal} 家，成交率 ${Math.round(deal / inP.length * 100)}%（合作中 ÷ 全部標記）` : '';
+  const q = $('mineQ').value.trim().toLowerCase();
+  mineView = inP.filter(r => (!mineF || (mineF === 'due' ? r.nx && r.nx <= t : r.s === mineF)) &&
+    (!q || [r.name, r.addr, r.phone, r.cn, r.cj, r.cm, r.nl, r.ind].some(v => (v || '').toLowerCase().includes(q))))
+    // 有下次聯絡日期的照日期排前面，其他照最後更新
+    .sort((a, b) => (a.nx || '9') < (b.nx || '9') ? -1 : (a.nx || '9') > (b.nx || '9') ? 1 : b.t - a.t);
+  const list = $('mineList'); list.innerHTML = ''; mineShown = 0;
+  if (!mineView.length) {
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = !all.length ? '你還沒有標記任何店家。到「找店家」或「今日推薦」按「已電聯」等狀態，就會出現在這裡。' : q ? `找不到符合「${q}」的客戶。` : '這個分類沒有客戶。';
+    list.appendChild(e);
+  }
+  do moreMine(); while (mineShown < Math.min(keepN, mineView.length));
+  if (keep) scrollTo(0, keepY);
+}
+function moreMine() {
+  const end = Math.min(mineView.length, mineShown + 50);
+  for (const r of mineView.slice(mineShown, end)) $('mineList').appendChild(card({ key: r.key, name: r.name, ci: r.ci, d: r.d, addr: r.addr, phone: r.phone, src: -1, ind: r.ind, P: r.p }));
+  mineShown = end;
+  $('mineMore').hidden = mineShown >= mineView.length;
+  $('mineMore').textContent = `顯示更多（還有 ${mineView.length - mineShown} 家）`;
+}
+$('mineMore').onclick = moreMine;
+$('mineProd').onchange = () => renderMine();
+$('mineQ').oninput = () => renderMine();
+
+/* 匯出成 Excel 打得開的 CSV（UTF-8 加 BOM，中文不會亂碼） */
+function downloadCsv(name, rows) {
+  const esc = v => { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const blob = new Blob(['\ufeff' + rows.map(r => r.map(esc).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$('mineExport').onclick = async () => {
+  const btn = $('mineExport');
+  if (!mineView.length) { flash('沒有可以匯出的客戶。'); return; }
+  btn.disabled = true;
+  let notes = [];
+  try { notes = await api('/notes/mine'); } catch (e) { flash('跟進紀錄沒有抓到（' + errText(e) + '），先匯出其他欄位。'); }
+  const byKey = {};
+  notes.forEach(n => { (byKey[n.key + '|' + n.p] = byKey[n.key + '|' + n.p] || []).push(fmtT(n.t) + ' ' + n.text); });
+  const counties = manifest ? manifest.counties : [];
+  const rows = [['產品', '店名', '狀態', '產業', '縣市', '地址', '電話', '聯絡人', '職稱', '聯絡人手機', '下次聯絡', '最後更新', '跟進紀錄']];
+  mineView.forEach(r => rows.push([r.p, r.name, STATUS_NAME[r.s] || r.s, r.ind, counties[r.ci] || '', r.addr, r.phone, r.cn, r.cj, r.cm, r.nx, ymd(new Date(r.t)), (byKey[r.key + '|' + r.p] || []).join('\n')]));
+  downloadCsv('我的客戶_' + today() + '.csv', rows);
+  btn.disabled = false;
+};
 
 const saved = load('product');
 if (saved && saved.length <= 20) {
