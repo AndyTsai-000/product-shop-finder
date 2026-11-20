@@ -45,6 +45,12 @@ h1{font-size:24px;margin:0;text-wrap:balance}
 .chip:focus-visible,.go:focus-visible,select:focus-visible,input:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .recent{display:flex;flex-direction:column;gap:8px}
+.pick-sum{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pick-sum>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pick-sum b{font-size:16px;word-break:break-word}
+#pickStep.compact>:not(.pick-sum){display:none!important}
+#pickStep.compact{padding-block:10px}
+.pick-done{align-self:flex-end}
 .chip-w{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--card)}
 .chip-w:hover{border-color:var(--accent)}
 .chip-w.on{background:var(--accent);border-color:var(--accent)}
@@ -58,7 +64,7 @@ h1{font-size:24px;margin:0;text-wrap:balance}
 input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);
   border-radius:8px;padding:8px 10px;min-width:0}
 input{flex:1 1 200px}
-select{flex:1 1 140px;max-width:220px}
+select{flex:1 1 140px;max-width:none}
 .btn{font:inherit;border:1px solid var(--accent);border-radius:8px;padding:8px 16px;
   background:transparent;color:var(--accent);cursor:pointer}
 .list{display:flex;flex-direction:column;gap:16px}
@@ -140,6 +146,12 @@ select{flex:1 1 140px;max-width:220px}
 .toast button:focus-visible{outline:2px solid var(--accent-soft);border-radius:4px}
 .ind.zero{opacity:.55}
 @media (max-width:480px){
+  /* 手機：按鈕至少 36px 高，手指比較好按 */
+  .chip-w .rm{padding:9px 12px 9px 4px}
+  .toast button{min-height:36px;padding:6px 10px}
+  .chip-sm{min-height:34px}
+  .fchip{min-height:36px}
+  .shop .links a{padding-block:5px}
   .pg{font-size:14px;padding:8px 2px}
   .step{padding:12px 14px}
   .res-sticky{margin:-12px -14px 0;padding:10px 14px 8px}
@@ -216,6 +228,7 @@ select{flex:1 1 140px;max-width:220px}
 .fu .who{color:var(--ink)}
 .fu a{color:var(--accent)}
 .sum{font-size:13px;color:var(--sub)}
+@media (max-width:480px){ .fu-btn{min-height:36px;padding:4px 14px} .qd{min-height:36px;padding:6px 13px} }
 </style>
 
 <button class="totop" id="toTop" hidden aria-label="回到上方">↑</button>
@@ -249,7 +262,7 @@ select{flex:1 1 140px;max-width:220px}
   <span class="label">聯絡窗口</span>
   <form class="ct-row" id="ctForm">
     <input id="ctName" maxlength="30" placeholder="姓名" aria-label="聯絡人姓名">
-    <input id="ctTitle" maxlength="30" placeholder="職稱，例如：老闆、店長" aria-label="職稱">
+    <input id="ctTitle" maxlength="30" placeholder="職稱" aria-label="職稱">
     <input id="ctMobile" maxlength="30" placeholder="手機" aria-label="聯絡人手機" inputmode="tel">
     <button class="btn" id="ctSave">儲存</button>
   </form>
@@ -307,6 +320,10 @@ select{flex:1 1 140px;max-width:220px}
     <button class="pg" data-pg="mine">我的客戶<span class="n" id="pgMineN"></span></button>
   </nav>
   <section class="step" id="pickStep">
+    <div class="pick-sum" id="pickSum" hidden>
+      <div><span class="label">推薦範圍</span><b id="pickSumT"></b></div>
+      <button class="btn" type="button" id="pickEdit">變更</button>
+    </div>
     <div class="label">產品</div>
     <form class="row" id="searchForm">
       <input id="q" placeholder="輸入產品，例如：沙發、淨水器" maxlength="20" aria-label="輸入產品" enterkeyhint="search">
@@ -322,6 +339,7 @@ select{flex:1 1 140px;max-width:220px}
       <select id="district" aria-label="鄉鎮市區"></select>
       <select id="road" aria-label="路名"></select>
     </div>
+    <button class="btn pick-done" type="button" id="pickDone" hidden>完成</button>
   </section>
 
   <section class="step" id="pgRec" hidden>
@@ -329,7 +347,7 @@ select{flex:1 1 140px;max-width:220px}
       <h2>今日推薦<span id="recSub"></span></h2>
       <button class="btn solid" id="recGo">換一批</button>
     </div>
-    <p class="hint" id="recHint">從上面的產品和地區，每天挑 15 家還沒有人聯絡的店家給你。新開的、有電話或粉專的、你們拜訪過的店附近的排前面；同事之間不會推薦到同一家。</p>
+    <p class="hint" id="recHint">每天挑 15 家還沒有人聯絡的店；新開的、有電話或粉專的、拜訪過的店附近的排前面，同事之間不會重複。</p>
     <div class="prog" id="recProgBox" hidden><div class="bar"><i id="recBar"></i></div><span id="recProg"></span></div>
     <div class="shops" id="recList"></div>
   </section>
@@ -448,7 +466,8 @@ function removeRecent(p) {
   recent = recent.filter(x => x !== p);
   saveRecent();
   if (p === product) { product = recent[0] || ''; save('product', product); current = ''; tab = 'list'; road = ''; $('result').hidden = true; renderIndustries(); if (product) loadRelated(product); }
-  renderProducts();
+  renderProducts(); updatePickSum();
+  if (page === 'rec') renderRec();
 }
 function pickProduct(p) {
   p = p.trim(); if (!p) { $('q').focus(); return; }
@@ -464,6 +483,7 @@ function pickProduct(p) {
   loadRelated(p);
   if (page === 'find') $('indStep').scrollIntoView({ behavior: 'smooth', block: 'start' });
   else if (page === 'rec') renderRec();
+  updatePickSum();
 }
 
 /* 問伺服器：這個產品的合作夥伴／潛在客戶是哪些產業（第一次要十幾秒，之後會記住） */
@@ -561,7 +581,7 @@ function renderIndustries() {
   const box = $('industries'); box.innerHTML = '';
   $('indStep').hidden = !product || page !== 'find';
   if (!product) return;
-  $('indLabel').textContent = '「' + product + '」相關產業・' + ($('county').value || '全台灣');
+  $('indLabel').textContent = '「' + product + '」相關產業・數字是' + ($('county').value || '全台灣') + '的家數';
   const table = tableOf(product);
   if (!table) {
     const e = document.createElement('div');
@@ -689,7 +709,7 @@ async function boot() {
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
   catch (e) { statusOk = false; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
-  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (product) loadRelated(product); }
+  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (page !== 'rec' && canEdit()) peekRec(); if (product) loadRelated(product); }
 }
 
 function logout(msg) {
@@ -1165,8 +1185,21 @@ function refresh(keep) {
   else renderMine(keep);
   updatePageCounts();
 }
+let pickOpen = false;
+function updatePickSum() {
+  const area = [$('county').value, $('district').value].filter(Boolean).join('');
+  const can = page === 'rec' && !!product && !!$('county').value;
+  $('pickSumT').textContent = product + '・' + area;
+  $('pickSum').hidden = !can || pickOpen;
+  $('pickStep').classList.toggle('compact', can && !pickOpen);
+  $('pickDone').hidden = !(page === 'rec' && pickOpen && product && $('county').value);
+}
+$('pickEdit').onclick = () => { pickOpen = true; updatePickSum(); $('q').focus(); };
+$('pickDone').onclick = () => { pickOpen = false; updatePickSum(); };
+['county', 'district'].forEach(id => $(id).addEventListener('change', () => { updatePickSum(); if (page === 'rec') renderRec(); }));
 function setPage(pg) {
-  if (!statusOk) pg = 'find';
+  if (pg !== page) pickOpen = false;
+  if (!statusOk || !canEdit()) pg = 'find';
   page = pg; save('page', pg);
   document.querySelectorAll('.pg').forEach(b => { b.classList.toggle('on', b.dataset.pg === pg); b.setAttribute('aria-pressed', String(b.dataset.pg === pg)); });
   $('pickStep').hidden = pg === 'mine';
@@ -1174,6 +1207,7 @@ function setPage(pg) {
   $('result').hidden = pg !== 'find' || !current;
   $('pgRec').hidden = pg !== 'rec';
   $('pgMine').hidden = pg !== 'mine';
+  updatePickSum();
   if (pg === 'find') { if (current) render(); }
   else if (pg === 'rec') loadRec();
   else renderMine();
@@ -1182,7 +1216,7 @@ function setPage(pg) {
 document.querySelectorAll('.pg').forEach(b => b.onclick = () => { setPage(b.dataset.pg); scrollTo(0, 0); });
 const mine = () => !me ? [] : allStatus.filter(r => r.uid === me.id);
 function updatePageCounts() {
-  $('pages').hidden = !statusOk;
+  $('pages').hidden = !statusOk || !canEdit();
   $('pgMineN').textContent = statusOk ? mine().length || '' : '';
   $('pgRecN').textContent = statusOk ? recLeft().length || '' : '';
 }
@@ -1195,8 +1229,10 @@ async function loadRec() {
   try { recItems = (await api('/recommend')).items; } catch (e) { recMsg = errText(e); renderRec(); return; }
   recMsg = '';
   if (!recItems.length && product && tableOf(product) && $('county').value) { genRec(); return; }
-  renderRec();
+  renderRec(); updatePageCounts();
 }
+/* 登入後先抓今天的推薦，頁籤馬上有數字 */
+async function peekRec() { try { recItems = (await api('/recommend')).items; updatePageCounts(); } catch (e) {} }
 /* 字串 → 0～1 的固定亂數（同一天、同一個人，順序固定；換天就不同） */
 function hashOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; }
 async function genRec() {
@@ -1238,7 +1274,7 @@ async function genRec() {
   const cands = first.concat(rest).slice(0, 200).map(({ sc, h, ...c }) => c);
   recBusy = false;
   if (!cands.length) { recMsg = '這個地區沒有還沒聯絡的店家了，可以換個地區或產品。'; renderRec(); return; }
-  try { recItems = (await api('/recommend', { items: cands })).items; recMsg = ''; save('recArea', product + '・' + (district || county)); }
+  try { recItems = (await api('/recommend', { items: cands })).items; recMsg = ''; }
   catch (e) { recMsg = errText(e); }
   renderRec(); updatePageCounts();
 }
@@ -1248,7 +1284,10 @@ function renderRec() {
   // 已標記的（任何人、任何產品）不再顯示，只算進度
   const left = recLeft(), done = recItems.length - left.length;
   const prods = [...new Set(recItems.map(r => r.p))];
-  $('recSub').textContent = recItems.length ? (prods.join('、') + '・' + (load('recArea') || '').split('・').pop()) : '';
+  // 地區從推薦的店家算：都在同一區就寫區名，不然寫縣市
+  const ds = [...new Set(recItems.map(r => r.d))], cs = [...new Set(recItems.map(r => r.ci))];
+  const area = ds.length === 1 && ds[0] ? ds[0] : cs.length === 1 && manifest ? manifest.counties[cs[0]] || '' : '';
+  $('recSub').textContent = recItems.length ? prods.join('、') + (area ? '・' + area : '') : '';
   $('recGo').disabled = recBusy;
   $('recGo').textContent = recItems.length ? '換一批' : '開始推薦';
   $('recProgBox').hidden = !recItems.length;

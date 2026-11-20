@@ -49,6 +49,15 @@ input{flex:1 1 180px}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
 .tab{font:inherit;background:none;border:0;border-bottom:2px solid transparent;color:var(--sub);padding:8px 12px;cursor:pointer;white-space:nowrap}
 .tab.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+.tabs{scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+@media (max-width:480px){
+  .tab{flex:1 1 auto;padding:8px 2px;font-size:14px}
+  .eye{min-width:36px;min-height:36px}
+  .tbl th,.tbl td{padding:7px 6px}
+}
+/* 報表：左右滑動時姓名／產品欄固定在左邊 */
+.tbl th:first-child,.tbl td:first-child{position:sticky;left:0;background:var(--card);z-index:1}
 .list{display:flex;flex-direction:column}
 .item{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
 .item:first-child{border-top:0}
