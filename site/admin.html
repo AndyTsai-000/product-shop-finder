@@ -169,7 +169,6 @@ input{flex:1 1 180px}
 
 <script>
 const SERVER = 'https://product-shop-status.multi-share-api.workers.dev';
-const PRODUCTS = ['家具', '窗簾', '空氣清淨機', '淨水器', '蛋白粉'];
 const STATUS = [['call', '已電聯'], ['visit', '已拜訪'], ['no', '無意願'], ['deal', '合作中']];
 const SNAME = Object.fromEntries(STATUS);
 const COUNTIES = '臺北市 新北市 桃園市 臺中市 臺南市 高雄市 基隆市 新竹市 嘉義市 新竹縣 苗栗縣 彰化縣 南投縣 雲林縣 嘉義縣 屏東縣 宜蘭縣 花蓮縣 臺東縣 澎湖縣 金門縣 連江縣'.split(' ');
@@ -229,7 +228,7 @@ $('fText').oninput = renderStatus;
 
 async function loadStatus() {
   try { statuses = await api('/admin/status'); } catch (e) { showMsg(e.message); return; }
-  const prods = [...new Set([...PRODUCTS, ...statuses.map(s => s.p).filter(Boolean)])];
+  const prods = [...new Set(statuses.map(s => s.p).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'zh-Hant'));
   const cur = $('fProd').value;
   $('fProd').innerHTML = '<option value="">全部產品</option>' + prods.map(p => `<option>${p.replace(/[&<>"]/g, c => '&#' + c.charCodeAt(0) + ';')}</option>`).join('') +
     (statuses.some(s => !s.p) ? '<option value="(舊)">改版前的舊紀錄</option>' : '');
