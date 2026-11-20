@@ -140,6 +140,45 @@ select{flex:1 1 140px;max-width:220px}
 .dlg h2{margin:0 0 10px;font-size:18px;color:var(--warn)}
 .dlg p{margin:0 0 8px;line-height:1.6}
 .dlg .row{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:14px}
+/* 跟進：卡片上的下次聯絡日期＋最新備註、跟進紀錄視窗、上方的待聯絡提醒 */
+.fu{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:13px;color:var(--sub);margin-top:2px}
+.fu .nx{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.nx.due{color:var(--warn)!important}
+.fu .nl{min-width:0;flex:1 1 180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fu-btn{font:inherit;font-size:13px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:2px 12px;min-height:28px;cursor:pointer;white-space:nowrap}
+.fu-btn:focus-visible,.qd:focus-visible,.dlg .x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.dlg.wide{width:min(520px,calc(100vw - 32px));max-width:none;padding:18px 18px 16px}
+.dlg.wide h2{color:var(--ink);font-size:17px;margin:0;padding-right:36px;word-break:break-word}
+.dlg .x{position:absolute;right:10px;top:10px;width:36px;height:36px;border:0;background:none;color:var(--sub);font-size:22px;cursor:pointer;border-radius:8px}
+.dlg .sub{color:var(--sub);font-size:13px;margin:2px 0 4px}
+.dlg .label{display:block;margin:12px 0 6px}
+.nx-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.nx-row input{flex:0 1 160px}
+.qd{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:3px 11px;cursor:pointer}
+.qd:hover{border-color:var(--accent)}
+.note-form{display:flex;flex-direction:column;gap:6px}
+.note-form textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:68px;resize:vertical;width:100%}
+.note-form textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.note-form .btn{align-self:flex-end}
+.dlg .err:empty{display:none}
+.notes{display:flex;flex-direction:column;max-height:min(42vh,360px);overflow:auto;margin-top:6px}
+.note{padding:8px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.note:first-child{border-top:0}
+.note p{margin:0;white-space:pre-wrap;word-break:break-word;font-size:14px}
+.note .m{font-size:12px;color:var(--sub);display:flex;gap:8px;align-items:center}
+.note .del{font:inherit;font-size:12px;border:0;background:none;color:var(--warn);cursor:pointer;padding:2px 4px}
+.due-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:12px;padding:10px 14px}
+.due-bar.soon{border-left-color:var(--accent)}
+.due-bar b{font-size:15px}
+.due-bar span{font-size:13px;color:var(--sub)}
+.due-list{display:flex;flex-direction:column;max-height:min(60vh,520px);overflow:auto}
+.due-item{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line);font-size:13px;color:var(--sub)}
+.due-h + .due-item{border-top:0}
+.due-item b{font-size:15px;color:var(--ink);word-break:break-word}
+.due-item .nx{align-self:start;white-space:nowrap;font-weight:500;color:var(--ink)}
+.due-item .act{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:2px}
+.due-item a{color:var(--accent);text-decoration:none}
+.due-h{font-size:13px;font-weight:700;color:var(--sub);margin:10px 0 2px}
 </style>
 
 <button class="totop" id="toTop" hidden aria-label="回到上方">↑</button>
@@ -153,6 +192,37 @@ select{flex:1 1 140px;max-width:220px}
     <button class="btn" id="otherOut">登出這個瀏覽器</button>
     <button class="btn solid" id="otherOk">我知道了</button>
   </div>
+</dialog>
+
+<dialog class="dlg wide" id="fuDlg" aria-labelledby="fuTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="fuTitle"></h2>
+  <p class="sub" id="fuSub"></p>
+  <div id="fuNxBox">
+    <span class="label">下次聯絡</span>
+    <div class="nx-row">
+      <input type="date" id="fuNx" aria-label="下次聯絡日期">
+      <button class="qd" type="button" data-days="1">明天</button>
+      <button class="qd" type="button" data-days="3">3 天後</button>
+      <button class="qd" type="button" data-days="7">一週後</button>
+      <button class="qd" type="button" id="fuNxClear">清除</button>
+    </div>
+  </div>
+  <p class="hint" id="fuNxRead" hidden></p>
+  <span class="label">跟進紀錄</span>
+  <form class="note-form" id="fuForm">
+    <textarea id="fuText" maxlength="500" placeholder="這次聯絡談了什麼，例如：老闆週一休，下週三下午再打" aria-label="新增跟進紀錄"></textarea>
+    <button class="btn solid" id="fuAdd">新增紀錄</button>
+  </form>
+  <p class="err" id="fuErr" role="alert"></p>
+  <div class="notes" id="fuNotes"></div>
+</dialog>
+
+<dialog class="dlg wide" id="dueDlg" aria-labelledby="dueTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="dueTitle">要聯絡的店家</h2>
+  <p class="sub">你標記、而且設了「下次聯絡」日期的店家（所有產品）。</p>
+  <div class="due-list" id="dueList"></div>
 </dialog>
 
 <div class="wrap">
@@ -182,6 +252,10 @@ select{flex:1 1 140px;max-width:220px}
   </section>
 
   <main class="app" id="app" hidden>
+  <div class="due-bar" id="dueBar" hidden>
+    <div><b id="dueText"></b> <span id="dueSub"></span></div>
+    <button class="btn" id="dueOpen">查看</button>
+  </div>
   <section class="step">
     <div class="label">產品</div>
     <div class="chips" id="products"></div>
@@ -544,14 +618,15 @@ async function boot() {
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
   catch (e) { statusOk = false; showApp(true); if (current) render(); if (isCustom()) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
-  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); if (current) render(); if (isCustom()) loadRelated(product); }
+  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); if (current) render(); if (isCustom()) loadRelated(product); }
 }
 
 function logout(msg) {
   token = ''; setMe(null);
   save('tok', '');
   statusOk = null; allStatus = [];
-  $('userMenu').hidden = true;
+  $('userMenu').hidden = true; $('dueBar').hidden = true;
+  ['fuDlg', 'dueDlg'].forEach(id => { if ($(id).open) $(id).close(); });
   $('loginErr').textContent = msg || '';
   showApp(false);
 }
@@ -591,7 +666,7 @@ async function loadStatuses() {
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
     const changed = JSON.stringify(j.items) !== JSON.stringify(allStatus);
-    allStatus = j.items; setMe(j.me); showApp(true);
+    allStatus = j.items; setMe(j.me); showApp(true); renderDue();
     // 沒有變動就不重畫，免得「顯示更多」展開的店家收回去、畫面跳動
     if (changed && current) render(true);
   } catch (e) { /* 暫時連不上就沿用舊資料，下次再抓 */ }
@@ -614,6 +689,8 @@ async function setStatus(item, s) {
   const by = me.name, uid = me.id;
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
   const rec = { key: item.key, p: product, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
+  // 換狀態時，伺服器會保留下次聯絡日期，跟進紀錄也還在
+  if (prev && prev.p === product) Object.assign(rec, { nx: prev.nx, nn: prev.nn, nl: prev.nl });
   // 先在畫面上更新，再送到伺服器
   allStatus = allStatus.filter(r => !(r.key === item.key && (r.p === product || (prev && r.p === prev.p))));
   if (next) allStatus.push(rec);
@@ -630,6 +707,148 @@ async function setStatus(item, s) {
   const undo = !prev || prev.p === product ? () => setStatus(item, prev ? prev.s : '') : null;
   flash(next ? `「${item.name}」已標記為「${STATUS_NAME[next]}」，可到「${STATUS_NAME[next]}」分頁查看。` : `已取消「${item.name}」的狀態，回到名單。`, undo);
 }
+/* ---------- 跟進紀錄＋下次聯絡日期（只有標記的人可以寫，別人可以看）---------- */
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const today = () => ymd(new Date());
+const addDays = n => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
+const WEEK = '日一二三四五六';
+/* 2026-11-25 → 「今天聯絡」「明天聯絡・11/21（六）」「已過 2 天・…」「下次聯絡 11/25（三）」 */
+function nxText(nx) {
+  const [y, m, d] = nx.split('-').map(Number);
+  const day = new Date(y, m - 1, d), now = new Date(); now.setHours(0, 0, 0, 0);
+  const diff = Math.round((day - now) / 864e5);
+  const md = m + '/' + d + '（' + WEEK[day.getDay()] + '）';
+  return diff === 0 ? '今天聯絡' : diff === 1 ? '明天聯絡・' + md : diff < 0 ? '已過 ' + -diff + ' 天・' + md : '下次聯絡 ' + md;
+}
+const fmtT = t => { const d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+/* 自己標的（一般權限）才能寫紀錄、設日期 */
+const ownRec = rec => !!(me && me.role === 'user' && rec && rec.uid === me.id);
+let fuRec = null;
+async function api(path, body) {
+  const r = await fetch(SERVER + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify(body) } : { cache: 'no-store', headers: authHeaders() });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { logout(j.error || '請重新登入。'); throw new Error(j.error || '請重新登入'); }
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+const errText = e => e.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路。' : e.message;
+function openFollow(rec) {
+  fuRec = rec;
+  const own = ownRec(rec);
+  $('fuTitle').textContent = rec.name;
+  $('fuSub').textContent = [rec.p, rec.ind, STATUS_NAME[rec.s], '由 ' + (rec.by || '未記名') + ' 標記'].filter(Boolean).join('・');
+  $('fuNxBox').hidden = !own; $('fuForm').hidden = !own;
+  $('fuNxRead').hidden = own || !rec.nx; $('fuNxRead').textContent = rec.nx ? '📅 ' + nxText(rec.nx) : '';
+  $('fuNx').value = rec.nx || ''; $('fuText').value = ''; $('fuErr').textContent = '';
+  $('fuNotes').innerHTML = '<div class="empty">載入中…</div>';
+  if (!$('fuDlg').open) $('fuDlg').showModal();
+  loadNotes();
+}
+async function loadNotes() {
+  const rec = fuRec;
+  let list;
+  try { list = await api('/notes?key=' + encodeURIComponent(rec.key) + '&p=' + encodeURIComponent(rec.p || '')); }
+  catch (e) { if (rec === fuRec) { $('fuNotes').innerHTML = ''; $('fuErr').textContent = errText(e); } return false; }
+  rec._list = list;
+  if (rec !== fuRec) return true;
+  const box = $('fuNotes'); box.innerHTML = '';
+  if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = ownRec(rec) ? '還沒有跟進紀錄，每次聯絡後記一下談了什麼。' : '還沒有跟進紀錄。'; box.appendChild(e); }
+  for (const n of list) {
+    const x = document.createElement('div'); x.className = 'note';
+    const p = document.createElement('p'); p.textContent = n.text;
+    const m = document.createElement('div'); m.className = 'm'; m.textContent = fmtT(n.t) + '・' + (n.by || '');
+    if (me && me.role === 'user' && n.uid === me.id) {
+      const del = document.createElement('button'); del.className = 'del'; del.type = 'button'; del.textContent = '刪除';
+      del.onclick = async () => {
+        if (del.dataset.sure !== '1') { del.dataset.sure = '1'; del.textContent = '確定刪除？'; setTimeout(() => { del.dataset.sure = ''; del.textContent = '刪除'; }, 4000); return; }
+        del.disabled = true;
+        try { await api('/notes/delete', { id: n.id }); if (await loadNotes()) syncNotes(rec); } catch (e) { $('fuErr').textContent = '沒有刪除成功：' + errText(e); del.disabled = false; }
+      };
+      m.appendChild(del);
+    }
+    x.append(p, m); box.appendChild(x);
+  }
+  return true;
+}
+/* 新增或刪除紀錄後，更新卡片上的則數和最新一則 */
+/* 改同一家店（同產品）的紀錄：視窗開著時清單可能已被自動更新換成新的物件，一起改 */
+function patchRec(rec, f) {
+  Object.assign(rec, f);
+  allStatus.forEach(r => { if (r.key === rec.key && (r.p || '') === (rec.p || '')) Object.assign(r, f); });
+}
+function syncNotes(rec) {
+  const l = rec._list || [];
+  patchRec(rec, { nn: l.length, nl: l[0] ? l[0].text.slice(0, 80) : null });
+  if (current) render(true);
+  renderDue();
+}
+$('fuForm').onsubmit = async e => {
+  e.preventDefault();
+  const text = $('fuText').value.trim(), rec = fuRec;
+  if (!text) { $('fuErr').textContent = '請輸入內容。'; $('fuText').focus(); return; }
+  $('fuAdd').disabled = true; $('fuErr').textContent = '';
+  try {
+    await api('/notes', { key: rec.key, p: rec.p || '', text });
+    $('fuText').value = '';
+    if (await loadNotes()) syncNotes(rec);
+  } catch (err) { $('fuErr').textContent = '沒有存成功：' + errText(err); }
+  $('fuAdd').disabled = false;
+};
+async function saveNx(nx) {
+  const rec = fuRec, old = rec.nx || '';
+  $('fuNx').value = nx; $('fuErr').textContent = '';
+  if (nx === old) return;
+  patchRec(rec, { nx: nx || null });
+  if (current) render(true);
+  renderDue();
+  try { await api('/next', { key: rec.key, p: rec.p || '', nx }); flash(nx ? `「${rec.name}」${nxText(nx)}，到時上方會提醒你。` : `已清除「${rec.name}」的下次聯絡日期。`); }
+  catch (e) { patchRec(rec, { nx: old || null }); $('fuNx').value = old; if (current) render(true); renderDue(); $('fuErr').textContent = '沒有存成功：' + errText(e); }
+}
+$('fuNx').onchange = () => saveNx($('fuNx').value);
+document.querySelectorAll('.qd[data-days]').forEach(b => b.onclick = () => saveNx(addDays(+b.dataset.days)));
+$('fuNxClear').onclick = () => saveNx('');
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('dialog').close());
+/* 點視窗外面的暗處也關掉 */
+document.querySelectorAll('dialog.wide').forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+$('fuDlg').onclose = () => { fuRec = null; if ($('dueDlg').open) renderDueList(); };
+
+/* 上方提醒：我標記、設了日期，今天以前（含過期）或 7 天內要聯絡的店家 */
+const myDue = () => !me ? [] : allStatus.filter(r => r.uid === me.id && r.nx && r.nx <= addDays(7)).sort((a, b) => a.nx < b.nx ? -1 : a.nx > b.nx ? 1 : 0);
+function renderDue() {
+  const list = myDue(), t = today();
+  const due = list.filter(r => r.nx <= t), late = due.filter(r => r.nx < t).length, soon = list.length - due.length;
+  const bar = $('dueBar');
+  bar.hidden = !statusOk || !list.length;
+  bar.classList.toggle('soon', !due.length);
+  $('dueText').textContent = due.length ? `📅 今天要聯絡 ${due.length} 家` : `📅 7 天內要聯絡 ${soon} 家`;
+  $('dueSub').textContent = [late ? `其中 ${late} 家已過期` : '', due.length && soon ? `7 天內還有 ${soon} 家` : ''].filter(Boolean).join('・');
+  if ($('dueDlg').open && !$('fuDlg').open) renderDueList();
+}
+function renderDueList() {
+  const box = $('dueList'), list = myDue(), t = today();
+  box.innerHTML = '';
+  if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = '目前沒有要聯絡的店家。'; box.appendChild(e); return; }
+  let head = '';
+  for (const r of list) {
+    const h = r.nx <= t ? '今天要聯絡（含已過期）' : '7 天內';
+    if (h !== head) { head = h; const x = document.createElement('div'); x.className = 'due-h'; x.textContent = h; box.appendChild(x); }
+    const it = document.createElement('div'); it.className = 'due-item';
+    const b = document.createElement('b'); b.textContent = r.name;
+    const nx = document.createElement('span'); nx.className = 'nx' + (r.nx <= t ? ' due' : ''); nx.textContent = nxText(r.nx);
+    const meta = document.createElement('div'); meta.style.gridColumn = '1/-1';
+    meta.textContent = [r.p, r.ind, STATUS_NAME[r.s], r.addr].filter(Boolean).join('・');
+    const act = document.createElement('div'); act.className = 'act';
+    if (r.phone) { const a = document.createElement('a'); a.href = 'tel:' + r.phone.replace(/[^\d+#]/g, ''); a.append(icon('phone'), r.phone); act.appendChild(a); }
+    if (r.nl) { const x = document.createElement('span'); x.textContent = '📝 ' + r.nl; act.appendChild(x); }
+    const btn = document.createElement('button'); btn.className = 'fu-btn'; btn.textContent = r.nn ? '跟進紀錄 ' + r.nn : '寫跟進紀錄';
+    btn.onclick = () => openFollow(r);
+    act.appendChild(btn);
+    it.append(b, nx, meta, act); box.appendChild(it);
+  }
+}
+$('dueOpen').onclick = () => { renderDueList(); $('dueDlg').showModal(); };
+
 /* 畫面下方的提示，幾秒後自動消失；undo 有給就多一顆「復原」 */
 let flashTimer = 0;
 function flash(msg, undo) {
@@ -781,6 +1000,19 @@ function card(it) {
       row.appendChild(n);
     }
     if (row.childNodes.length) d.appendChild(row);
+    if (cur) {
+      // 跟進：下次聯絡日期、最新一則紀錄；自己標的可以寫，別人標的有紀錄才能看
+      const fu = document.createElement('div'); fu.className = 'fu';
+      if (cur.nx) { const x = document.createElement('span'); x.className = 'nx' + (cur.nx <= today() ? ' due' : ''); x.textContent = '📅 ' + nxText(cur.nx); fu.appendChild(x); }
+      if (cur.nl) { const x = document.createElement('span'); x.className = 'nl'; x.textContent = '📝 ' + cur.nl; x.title = cur.nl; fu.appendChild(x); }
+      if (ownRec(cur) || cur.nn) {
+        const x = document.createElement('button'); x.className = 'fu-btn';
+        x.textContent = cur.nn ? '跟進紀錄 ' + cur.nn : '寫跟進紀錄';
+        x.onclick = () => openFollow(cur);
+        fu.appendChild(x);
+      }
+      if (fu.childNodes.length) d.appendChild(fu);
+    }
     // 同一家店在其他產品被標過：提醒一下，避免類似產品重複開發同一家
     const others = allStatus.filter(r => r.key === it.key && r !== cur && r.p !== product);
     if (others.length) {

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS status (
   t INTEGER NOT NULL,       -- 更新時間（毫秒）
   name TEXT, addr TEXT, ind TEXT, ci INTEGER, d TEXT, phone TEXT,
   uid TEXT,                   -- 標記人編號
+  nx TEXT,                    -- 下次聯絡日期 YYYY-MM-DD
   PRIMARY KEY (key, p)
 );
 -- 修改紀錄（誤改時可以查回來）
@@ -41,3 +42,10 @@ CREATE TABLE IF NOT EXISTS related (
   client TEXT,          -- 潛在客戶產業（JSON 陣列）
   t INTEGER
 );
+-- 2026-11-20：跟進紀錄（每家店在每個產品下可以寫多則備註）
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL, p TEXT NOT NULL DEFAULT '',
+  uid TEXT, by TEXT, t INTEGER NOT NULL, text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS notes_kp ON notes(key, p);

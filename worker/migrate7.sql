@@ -1,0 +1,8 @@
+-- 2026-11-20：跟進紀錄（每家店在每個產品下可以寫多則備註）＋下次聯絡日期
+ALTER TABLE status ADD COLUMN nx TEXT;   -- 下次聯絡日期 YYYY-MM-DD
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL, p TEXT NOT NULL DEFAULT '',
+  uid TEXT, by TEXT, t INTEGER NOT NULL, text TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS notes_kp ON notes(key, p);

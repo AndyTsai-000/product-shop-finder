@@ -80,6 +80,13 @@ input{flex:1 1 180px}
 .edit input{flex:0 1 120px;padding:5px 8px;font-size:14px}
 .edit input.nm{flex:1 1 120px}
 .edit select{padding:5px 8px;font-size:14px}
+.notes{grid-column:1/-1;display:flex;flex-direction:column;border-left:3px solid var(--line);padding-left:10px;margin-top:4px}
+.note{padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.note:first-child{border-top:0}
+.note p{margin:0;white-space:pre-wrap;word-break:break-word}
+.note .meta{display:flex;gap:8px;align-items:center}
+.note .btn{padding:1px 10px;font-size:12px}
+.due{color:var(--warn);font-weight:500}
 </style>
 </head>
 <body>
@@ -233,7 +240,7 @@ async function loadStatus() {
 function renderStatus() {
   const p = $('fProd').value, s = $('fStatus').value, q = $('fText').value.trim();
   filtered = statuses.filter(r => (!p || (p === '(舊)' ? !r.p : r.p === p)) && (!s || r.s === s) &&
-    (!q || [r.name, r.addr, r.by, r.ind].some(v => (v || '').includes(q)))).sort((a, b) => b.t - a.t);
+    (!q || [r.name, r.addr, r.by, r.ind, r.nl].some(v => (v || '').includes(q)))).sort((a, b) => b.t - a.t);
   const counts = STATUS.map(([k, n]) => `${n} ${filtered.filter(r => r.s === k).length}`).join('・');
   $('statusSum').textContent = `共 ${filtered.length} 家（${counts}）`;
   $('statusList').innerHTML = filtered.length ? '' : '<div class="empty">沒有符合的狀態。</div>';
@@ -253,6 +260,12 @@ function statusItem(r) {
   it.append(el('b', '', r.name), el('span', 'pill s-' + r.s, SNAME[r.s] || r.s));
   it.append(el('div', 'meta', `${r.p || '（舊紀錄）'}・${r.ind || ''}・${r.addr || (COUNTIES[r.ci] || '') + (r.d || '')}`));
   it.append(el('div', 'meta', `由 ${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'} 標記・${fmt(r.t)}`));
+  if (r.nx || r.nl) {
+    const fu = el('div', 'meta');
+    if (r.nx) { const x = el('span', r.nx <= ymd(new Date()) ? 'due' : '', '📅 下次聯絡 ' + r.nx); fu.append(x); }
+    if (r.nl) fu.append((r.nx ? '　' : '') + '📝 ' + r.nl);
+    it.append(fu);
+  }
   const ctl = el('div', 'ctl');
   const sel = el('select');
   sel.setAttribute('aria-label', '修改狀態');
@@ -262,8 +275,43 @@ function statusItem(r) {
   const cancel = el('button', 'btn danger', '取消狀態');
   cancel.onclick = () => change(r, '', cancel);
   ctl.append(sel, cancel);
+  let box = null;
+  if (r.nn) {
+    const nb = el('button', 'btn', '跟進紀錄 ' + r.nn);
+    nb.onclick = async () => {
+      if (box) { box.remove(); box = null; return; }
+      box = el('div', 'notes'); box.append(el('div', 'empty', '載入中…')); it.append(box);
+      showNotes(r, box, nb);
+    };
+    ctl.append(nb);
+  }
   it.append(ctl);
   return it;
+}
+
+const pad2 = n => String(n).padStart(2, '0');
+const ymd = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+/* 跟進紀錄：展開看，可以刪除（按兩次確認） */
+async function showNotes(r, box, nb) {
+  let list;
+  try { list = await api('/admin/notes?key=' + encodeURIComponent(r.key) + '&p=' + encodeURIComponent(r.p || '')); }
+  catch (e) { box.innerHTML = ''; box.append(el('div', 'empty', e.message)); return; }
+  box.innerHTML = '';
+  if (!list.length) box.append(el('div', 'empty', '沒有跟進紀錄。'));
+  r.nn = list.length; nb.textContent = '跟進紀錄 ' + list.length;
+  for (const n of list) {
+    const x = el('div', 'note');
+    const m = el('div', 'meta', `${fmt(n.t)}・${n.uid ? n.uid + ' ' : ''}${n.by || ''}`);
+    const del = el('button', 'btn danger', '刪除');
+    del.onclick = async () => {
+      if (!del.classList.contains('sure')) { del.classList.add('sure'); del.textContent = '確定刪除？'; setTimeout(() => { del.classList.remove('sure'); del.textContent = '刪除'; }, 4000); return; }
+      del.disabled = true;
+      try { await api('/admin/notes/delete', { id: n.id }); showNotes(r, box, nb); } catch (e) { showMsg(e.message); del.disabled = false; }
+    };
+    m.append(del);
+    x.append(el('p', '', n.text), m);
+    box.append(x);
+  }
 }
 
 async function change(r, s, ctrl) {

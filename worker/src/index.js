@@ -4,6 +4,10 @@
 //   POST /login           {id, name}        → {token, me}
 //   GET  /status          （要登入）        → {me: {id, name, role, other?}, items: [{key, p, s, by, uid, t, name, addr, ind, ci, d, phone}]}
 //   POST /status          （要登入）        → 設定一家店在某個產品（p）下的狀態，s 空字串＝取消；標記人＝登入的使用者
+//   GET  /notes?key=&p=   （要登入）        → 這家店在這個產品下的跟進紀錄 [{id, uid, by, t, text}]（新到舊）
+//   POST /notes           （要登入）{key, p, text} → 新增一則跟進紀錄（只有標記這家店的人可以寫）
+//   POST /notes/delete    （要登入）{id}    → 刪除自己寫的跟進紀錄
+//   POST /next            （要登入）{key, p, nx} → 設定下次聯絡日期（YYYY-MM-DD，空字串＝清除；只有標記的人可以設）
 //   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
 // 同一個帳號在別的瀏覽器登入後，舊瀏覽器的 me 會多 other: {t, ua}（最後一次登入的時間、裝置），前台跳提醒
 // 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
@@ -13,6 +17,8 @@
 //   POST /admin/account   {current, username, password?} → 改使用者名稱／密碼（要目前的密碼），回新的 {token}
 //   GET  /admin/status                      → 全部狀態
 //   POST /admin/status    {key, p, s}       → 改狀態或取消（s 空字串）
+//   GET  /admin/notes?key=&p=               → 跟進紀錄
+//   POST /admin/notes/delete {id}           → 刪除一則跟進紀錄
 //   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
 //   POST /admin/users     {oldId?, id, name, role} → 新增（沒有 oldId）或修改（可改編號、姓名、權限）
 //   POST /admin/users/delete {id}           → 刪除使用者
@@ -29,6 +35,8 @@ const USER_DAYS = 90, ADMIN_DAYS = 7;
 const ADMIN_BY = '管理員';
 const AI_MODEL = '@cf/openai/gpt-oss-120b';
 const MAX_AI_PER_HOUR = 100;
+const MAX_NOTES_PER_HOUR = 300;
+const NOTE_LEN = 500;
 
 export default {
   async fetch(req, rawEnv) {
@@ -49,6 +57,10 @@ async function route(req, env, url) {
   if (p === '/login' && m === 'POST') return userLogin(req, env);
   if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env) }; }
   if (p === '/status' && m === 'POST') { const me = await needUser(req, env); return saveStatus(req, env, me); }
+  if (p === '/notes' && m === 'GET') { await needUser(req, env); return listNotes(env, url); }
+  if (p === '/notes' && m === 'POST') { const me = await needUser(req, env); return addNote(req, env, me); }
+  if (p === '/notes/delete' && m === 'POST') { const me = await needUser(req, env); return deleteNote(req, env, me); }
+  if (p === '/next' && m === 'POST') { const me = await needUser(req, env); return setNext(req, env, me); }
   if (p === '/related' && m === 'POST') { await needUser(req, env); return related(req, env); }
   if (p === '/admin/login' && m === 'POST') return adminLogin(req, env);
   if (p.startsWith('/admin/')) {
@@ -57,6 +69,8 @@ async function route(req, env, url) {
     if (p === '/admin/account' && m === 'POST') return saveAccount(req, env);
     if (p === '/admin/status' && m === 'GET') return listStatus(env);
     if (p === '/admin/status' && m === 'POST') return adminSetStatus(req, env);
+    if (p === '/admin/notes' && m === 'GET') return listNotes(env, url);
+    if (p === '/admin/notes/delete' && m === 'POST') return deleteNote(req, env, null);
     if (p === '/admin/users' && m === 'GET') return listUsers(env);
     if (p === '/admin/users' && m === 'POST') return saveUser(req, env);
     if (p === '/admin/users/delete' && m === 'POST') return deleteUser(req, env);
@@ -169,9 +183,61 @@ async function userLogin(req, env) {
   return { token: await makeToken(env, { role: 'user', rid: u.rid, sid }, USER_DAYS), me: { id: u.id, name: u.name, role: u.role } };
 }
 
+/* nx 下次聯絡日期、nn 跟進紀錄幾則、nl 最新一則（前 80 字） */
 async function listStatus(env) {
-  const { results } = await env.DB.prepare('SELECT key, p, s, by, uid, t, name, addr, ind, ci, d, phone FROM status').all();
+  const { results } = await env.DB.prepare(`SELECT s.key, s.p, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx,
+    (SELECT COUNT(*) FROM notes n WHERE n.key = s.key AND n.p = s.p) AS nn,
+    (SELECT substr(n.text, 1, 80) FROM notes n WHERE n.key = s.key AND n.p = s.p ORDER BY n.id DESC LIMIT 1) AS nl
+    FROM status s`).all();
   return results;
+}
+
+/* ---------- 跟進紀錄、下次聯絡日期（只有標記這家店的人可以寫）---------- */
+
+async function ownStatus(env, me, key, p) {
+  if (me.role === 'view') fail('你的權限只能查看，不能修改', 403);
+  checkKey(key);
+  const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ?').bind(key, p).first();
+  if (!cur) fail('請先標記這家店的狀態，才能寫跟進紀錄', 400);
+  if (cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人可以寫跟進紀錄`, 403);
+}
+
+async function listNotes(env, url) {
+  const key = str(url.searchParams.get('key'), 40), p = str(url.searchParams.get('p'), 20);
+  checkKey(key);
+  const { results } = await env.DB.prepare('SELECT id, uid, by, t, text FROM notes WHERE key = ? AND p = ? ORDER BY id DESC LIMIT 200').bind(key, p).all();
+  return results;
+}
+
+async function addNote(req, env, me) {
+  const b = await body(req);
+  const key = str(b.key, 40), p = str(b.p, 20), text = str(b.text, NOTE_LEN);
+  if (!text) fail('請輸入內容');
+  await ownStatus(env, me, key, p);
+  const now = Date.now();
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM notes WHERE uid = ? AND t > ?').bind(me.id, now - 3600e3).first();
+  if (n >= MAX_NOTES_PER_HOUR) fail('新增太頻繁，請稍後再試', 429);
+  const r = await env.DB.prepare('INSERT INTO notes (key, p, uid, by, t, text) VALUES (?,?,?,?,?,?)').bind(key, p, me.id, me.name, now, text).run();
+  return { ok: true, id: r.meta.last_row_id, t: now, by: me.name, uid: me.id };
+}
+
+/* me 是 null＝後台，可以刪任何一則 */
+async function deleteNote(req, env, me) {
+  const id = parseInt((await body(req)).id, 10);
+  const row = await env.DB.prepare('SELECT uid FROM notes WHERE id = ?').bind(id).first();
+  if (!row) fail('找不到這則紀錄（可能已被刪除）', 404);
+  if (me && row.uid !== me.id) fail('只能刪除自己寫的紀錄', 403);
+  await env.DB.prepare('DELETE FROM notes WHERE id = ?').bind(id).run();
+  return { ok: true };
+}
+
+async function setNext(req, env, me) {
+  const b = await body(req);
+  const key = str(b.key, 40), p = str(b.p, 20), nx = str(b.nx, 10);
+  if (nx && !/^\d{4}-\d{2}-\d{2}$/.test(nx)) fail('日期格式錯誤');
+  await ownStatus(env, me, key, p);
+  await env.DB.prepare('UPDATE status SET nx = ? WHERE key = ? AND p = ?').bind(nx || null, key, p).run();
+  return { ok: true };
 }
 
 function checkKey(key) {
@@ -336,6 +402,7 @@ async function saveUser(req, env) {
   await env.DB.batch([
     env.DB.prepare('UPDATE users SET id = ?, name = ?, role = ? WHERE id = ?').bind(id, name, role, oldId),
     env.DB.prepare('UPDATE status SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
+    env.DB.prepare('UPDATE notes SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
   ]);
   return { ok: true };
 }
