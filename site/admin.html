@@ -153,11 +153,10 @@ h3{font-size:15px;margin:6px 0 0}
       <form class="row" id="userForm">
         <input id="newId" placeholder="使用者編號" maxlength="20" aria-label="使用者編號" style="flex:0 1 130px">
         <input id="newName" placeholder="姓名" maxlength="20" aria-label="姓名" style="flex:1 1 120px">
-        <input id="newGrp" placeholder="組別（可空白）" maxlength="20" aria-label="組別" list="grpList" style="flex:1 1 110px">
+        <input id="newGrp" placeholder="組別（可空白）" maxlength="20" aria-label="組別" style="flex:1 1 110px">
         <select id="newRole" aria-label="權限"></select>
         <button class="btn solid">新增</button>
       </form>
-      <datalist id="grpList"></datalist>
       <p class="hint">同事用「使用者編號＋姓名」登入。權限：一般＝可以標記，只能修改自己標的（別人標的只有後台能改）；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。<br>組別：同一組的同事互相看得到標記的店家、跟進紀錄、下次聯絡、聯絡窗口；不同組完全看不到彼此（今日推薦也只避開同組標過的店）。組別空白的人算同一組「未分組」。換組別時，他標過的店家會一起帶到新組別。</p>
       <div class="list" id="userList"></div>
     </section>
@@ -454,7 +453,6 @@ $('newRole').value = 'user';
 async function loadUsers() {
   let users;
   try { users = await api('/admin/users'); } catch (e) { showMsg(e.message); return; }
-  $('grpList').innerHTML = [...new Set(users.map(u => u.grp).filter(Boolean))].map(g => `<option value="${escH(g)}">`).join('');
   const box = $('userList'); box.innerHTML = users.length ? '' : '<div class="empty">還沒有使用者。在上面輸入編號和姓名新增，同事就能登入。</div>';
   for (const u of users) {
     const it = el('div', 'item' + (u.role === 'off' ? ' off' : ''));
@@ -464,7 +462,7 @@ async function loadUsers() {
     const edit = el('div', 'edit');
     const id = el('input'); id.value = u.id; id.maxLength = 20; id.setAttribute('aria-label', '使用者編號');
     const nm = el('input', 'nm'); nm.value = u.name; nm.maxLength = 20; nm.setAttribute('aria-label', '姓名');
-    const grp = el('input', 'grp'); grp.value = u.grp || ''; grp.maxLength = 20; grp.placeholder = '組別'; grp.setAttribute('list', 'grpList'); grp.setAttribute('aria-label', '組別');
+    const grp = el('input', 'grp'); grp.value = u.grp || ''; grp.maxLength = 20; grp.placeholder = '組別'; grp.setAttribute('aria-label', '組別');
     const role = el('select'); role.innerHTML = roleOptions; role.value = u.role; role.setAttribute('aria-label', '權限');
     const saveBtn = el('button', 'btn solid', '儲存');
     saveBtn.onclick = async () => {
