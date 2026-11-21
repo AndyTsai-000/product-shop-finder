@@ -1000,10 +1000,10 @@ function render(keep) {
   nb.hidden = tab !== 'list' || !nNew;
   nb.textContent = newOnly ? `新開 ${nNew} 家（按這裡看全部）` : `只看新開的店 ${nNew} 家`;
   nb.classList.toggle('on', newOnly); nb.setAttribute('aria-pressed', String(newOnly));
-  // 狀態分頁：這個產品所有產業裡、在所選地區的已標記店家（新標記的在前）
+  // 狀態分頁：選了產業＝這個產業；總覽＝這個產品所有產業（沒有產品就是所有產品）；都限所選地區（新標記的在前）
   const allP = ov && !product;  // 沒有產品：所有產品的標記，卡片照各自的產品
   const marked = (allP ? allStatus.map(v => [v.key, v]) : Object.entries(statuses))
-    .filter(([, v]) => (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
+    .filter(([, v]) => (ov || v.ind === current) && (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
     .sort((a, b) => b[1].t - a[1].t);
   const byStatus = Object.fromEntries(STATUS.map(([s]) => [s, marked.filter(([, v]) => v.s === s)
     .map(([k, v]) => allP ? { ...itemOfStatus(k, v), P: v.p } : itemOfStatus(k, v))]));
@@ -1035,7 +1035,7 @@ function render(keep) {
   const nq = $('nameQ').value.trim().toLowerCase();
   const all = tab === 'list' ? listItems : byStatus[tab];
   view = nq ? all.filter(it => (it.name + ' ' + (it.addr || '') + ' ' + (it.phone || '')).toLowerCase().includes(nq)) : all;
-  sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : product ? '（「' + product + '」所有產業）' : '（所有產品）');
+  sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' || !ov ? '' : product ? '（「' + product + '」所有產業）' : '（所有產品）');
   title.appendChild(sub);
 
   const box = $('shops'); box.innerHTML = '';
@@ -1189,11 +1189,13 @@ addEventListener('scroll', () => {
   $('toTop').hidden = scrollY < 900;
 }, { passive: true });
 $('toTop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
-/* 點「域見夥伴」回首頁：找店家、取消選的產業，產品和地區留著 */
+/* 點「域見夥伴」回首頁：回到一開始的樣子（產品清空、地區全台灣、不選產業）；近期搜尋和登入留著 */
 $('home').onclick = e => {
   e.preventDefault();
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
   current = ''; currentQ = ''; tab = 'list'; road = '';
+  product = ''; save('product', ''); renderProducts(); $('q').value = '';
+  $('county').value = ''; fillDistrict(); save('county', ''); save('district', '');
   if (statusOk) setPage('find');
   renderIndustries(); showList();
   scrollTo(0, 0);
