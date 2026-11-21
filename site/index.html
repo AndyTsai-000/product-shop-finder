@@ -984,8 +984,8 @@ function render(keep) {
   if (ov) {
     $('result').hidden = page !== 'find' || !statusOk;
     if (!statusOk) return;
-    if (tab === 'list') tab = 'call';
   }
+  const autoTab = ov && tab === 'list';  // 總覽剛打開：停在第一個有店家的狀態
   const keepN = keep ? shown : 0, keepY = scrollY;
   statuses = statusMap();
   const county = $('county').value, district = $('district').value;
@@ -1007,9 +1007,14 @@ function render(keep) {
     .sort((a, b) => b[1].t - a[1].t);
   const byStatus = Object.fromEntries(STATUS.map(([s]) => [s, marked.filter(([, v]) => v.s === s)
     .map(([k, v]) => allP ? { ...itemOfStatus(k, v), P: v.p } : itemOfStatus(k, v))]));
+  if (autoTab) tab = (STATUS.find(([k]) => byStatus[k].length) || ['call'])[0];
+  // 總覽：一家都還沒標記，就只顯示一句說明
+  const none = ov && !marked.length;
+  $('nameQ').hidden = none;
+  $('nameQ').placeholder = ov ? '在已標記的店家裡找店名、地址或電話' : '在名單裡找店名、地址或電話';
 
   const tabs = $('tabs'); tabs.innerHTML = '';
-  tabs.hidden = !statusOk;
+  tabs.hidden = !statusOk || none;
   if (!statusOk) tab = 'list';
   const mk = (id, label, n, cls) => {
     const b = document.createElement('button');
@@ -1021,14 +1026,14 @@ function render(keep) {
     b.onclick = () => { tab = id; render(); toResult(); };
     tabs.appendChild(b);
   };
-  if (statusOk) {
+  if (statusOk && !none) {
     if (!ov) mk('list', '名單', listItems.length);
     STATUS.forEach(([s, label]) => mk(s, label, byStatus[s].length, 's-' + s));
   }
 
   const area = (district || county || '全台灣') + road;
   const title = $('resTitle');
-  title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
+  title.textContent = none ? '已標記的店家' : tab === 'list' ? current : STATUS_NAME[tab];
   $('resMap').hidden = ov;
   const sub = document.createElement('span');
   // 店名搜尋：店名、地址、電話有包含就列出
@@ -1041,14 +1046,15 @@ function render(keep) {
   const box = $('shops'); box.innerHTML = '';
   shown = 0;
   let note = '';
-  if (nq && all.length && !view.length) note = `找不到符合「${nq}」的店家。`;
+  if (none) note = (district || county ? '這個地區' : '') + '還沒有標記過的店家。' + (product ? '點上方的產業列出店家名單，' : '先在上方輸入產品、點產業列出店家名單，') + '按店家下方的「已電聯」「已拜訪」等，就會出現在這裡。';
+  else if (nq && all.length && !view.length) note = `找不到符合「${nq}」的店家。`;
   else if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
-  else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。` + (ov ? '點上方的產業列出店家名單，按店家下方的狀態就會出現在這裡。' : `在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`);
+  else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。` + (ov ? '' : `在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`);
   if (note) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = note; box.appendChild(e); }
   do more(); while (shown < Math.min(keepN, view.length));
   if (keep) scrollTo(0, keepY);
 
-  if (ov) { $('source').innerHTML = '這裡是已標記狀態的店家；點上方的產業，就會改列出那個產業的店家名單。'; return; }
+  if (ov) { $('source').textContent = none ? '' : '這裡是已標記狀態的店家；點上方的產業，就會改列出那個產業的店家名單。'; return; }
   const withPhone = areaRows.filter(r => r[4]).length;
   $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
     `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話、信箱、粉專，本區有電話 ${withPhone} 家）。` +

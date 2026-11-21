@@ -634,7 +634,7 @@ async function loadLog(more) {
   for (const r of rows) {
     const it = el('div', 'item');
     it.append(el('b', '', r.name || r.key), el('span', 'pill s-' + (r.s || ''), r.s ? SNAME[r.s] : '取消'));
-    it.append(el('div', 'meta', `${fmt(r.t)}・${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'}・${r.p || '（舊紀錄）'}`));
+    it.append(el('div', 'meta', `${fmt(r.t)}・${r.uid ? r.uid + ' ' : ''}${r.by || '（沒有名字）'}・${r.p || '（舊紀錄）'}${r.g ? '・' + r.g : ''}`));
     box.appendChild(it);
   }
   if (rows.length) lastId = rows[rows.length - 1].id;
