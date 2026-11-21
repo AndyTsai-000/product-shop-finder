@@ -15,18 +15,20 @@
 //   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
 // 同一個帳號在別的瀏覽器登入後，舊瀏覽器的 me 會多 other: {t, ua}（最後一次登入的時間、裝置），前台跳提醒
 // 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
+// 組別（users.grp，空白＝未分組）：狀態、跟進紀錄、下次聯絡、聯絡窗口、推薦去重都只在同一組裡；不同組完全看不到彼此。
+//   status／notes／recs 的 g 是標記人當時的組別；後台換某人的組別時，他標的店家一起帶過去
 // 管理員（後台，用「使用者名稱＋密碼」登入；帳號存在 admin 表，第一次用 admin＋ADMIN_PASSWORD）
 //   POST /admin/login     {username, password} → {token, username}
 //   GET  /admin/account                     → {username}
 //   POST /admin/account   {current, username, password?} → 改使用者名稱／密碼（要目前的密碼），回新的 {token}
 //   GET  /admin/status                      → 全部狀態
-//   POST /admin/status    {key, p, s}       → 改狀態或取消（s 空字串）
-//   GET  /admin/notes?key=&p=               → 跟進紀錄
+//   POST /admin/status    {key, p, g, s}    → 改狀態或取消（s 空字串）
+//   GET  /admin/notes?key=&p=&g=            → 跟進紀錄
 //   POST /admin/notes/delete {id}           → 刪除一則跟進紀錄
 //   GET  /admin/notes/all                   → 全部跟進紀錄（匯出用）
 //   GET  /admin/report?since=<毫秒>          → 統計報表（每人的電聯／拜訪／合作數、跟進則數、各產品狀態）
 //   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
-//   POST /admin/users     {oldId?, id, name, role} → 新增（沒有 oldId）或修改（可改編號、姓名、權限）
+//   POST /admin/users     {oldId?, id, name, role, grp} → 新增（沒有 oldId）或修改（可改編號、姓名、權限、組別）
 //   POST /admin/users/delete {id}           → 刪除使用者
 //   GET  /admin/log?since=<毫秒>&before=<id> → 修改紀錄（新到舊，每次 200 筆；since 起算時間，0＝全部）
 //   POST /admin/log/clear {since}            → 清除 since 之後的紀錄（0＝全部），回傳刪掉幾筆
@@ -64,13 +66,13 @@ export default {
 async function route(req, env, url) {
   const p = url.pathname, m = req.method;
   if (p === '/login' && m === 'POST') return userLogin(req, env);
-  if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env) }; }
+  if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env, me.g) }; }
   if (p === '/status' && m === 'POST') { const me = await needUser(req, env); return saveStatus(req, env, me); }
   if (p === '/notes/mine' && m === 'GET') { const me = await needUser(req, env); return myNotes(env, me); }
   if (p === '/contact' && m === 'POST') { const me = await needUser(req, env); return setContact(req, env, me); }
   if (p === '/recommend' && m === 'GET') { const me = await needUser(req, env); return getRecs(env, me); }
   if (p === '/recommend' && m === 'POST') { const me = await needUser(req, env); return makeRecs(req, env, me); }
-  if (p === '/notes' && m === 'GET') { await needUser(req, env); return listNotes(env, url); }
+  if (p === '/notes' && m === 'GET') { const me = await needUser(req, env); return listNotes(env, url, me.g); }
   if (p === '/notes' && m === 'POST') { const me = await needUser(req, env); return addNote(req, env, me); }
   if (p === '/notes/delete' && m === 'POST') { const me = await needUser(req, env); return deleteNote(req, env, me); }
   if (p === '/next' && m === 'POST') { const me = await needUser(req, env); return setNext(req, env, me); }
@@ -80,9 +82,9 @@ async function route(req, env, url) {
     await needAdmin(req, env);
     if (p === '/admin/account' && m === 'GET') return { username: (await getAdmin(env)).username };
     if (p === '/admin/account' && m === 'POST') return saveAccount(req, env);
-    if (p === '/admin/status' && m === 'GET') return listStatus(env);
+    if (p === '/admin/status' && m === 'GET') return listStatus(env, null);
     if (p === '/admin/status' && m === 'POST') return adminSetStatus(req, env);
-    if (p === '/admin/notes' && m === 'GET') return listNotes(env, url);
+    if (p === '/admin/notes' && m === 'GET') return listNotes(env, url, str(url.searchParams.get('g'), 20));
     if (p === '/admin/notes/all' && m === 'GET') return allNotes(env);
     if (p === '/admin/report' && m === 'GET') return report(env, url);
     if (p === '/admin/notes/delete' && m === 'POST') return deleteNote(req, env, null);
@@ -146,7 +148,7 @@ async function readToken(req, env) {
 async function needUser(req, env) {
   const t = await readToken(req, env);
   if (!t || t.role !== 'user' || !t.rid) fail('請先登入', 401);
-  const u = await env.DB.prepare('SELECT id, name, role, sid, sidt, sidua FROM users WHERE rowid = ?').bind(t.rid).first();
+  const u = await env.DB.prepare('SELECT id, name, role, grp AS g, sid, sidt, sidua FROM users WHERE rowid = ?').bind(t.rid).first();
   if (!u) fail('找不到這個使用者，請重新登入', 401);
   if (u.role === 'off') fail('這個帳號已被停用，請聯絡管理員', 401);
   const { sid, sidt, sidua, ...me } = u;
@@ -186,7 +188,7 @@ async function userLogin(req, env) {
   const b = await body(req);
   const id = str(b.id, 20), name = str(b.name, 20);
   if (!id || !name) fail('請輸入編號和姓名');
-  const u = await env.DB.prepare('SELECT rowid AS rid, id, name, role FROM users WHERE id = ? COLLATE NOCASE').bind(id).first();
+  const u = await env.DB.prepare('SELECT rowid AS rid, id, name, role, grp FROM users WHERE id = ? COLLATE NOCASE').bind(id).first();
   if (!u || u.name !== name) {
     await noteLogin(env, ip, false, id + ' ' + name);
     fail('編號或姓名不正確，請確認或聯絡管理員', 403);
@@ -195,15 +197,16 @@ async function userLogin(req, env) {
   await noteLogin(env, ip, true, u.id + ' ' + u.name);
   const sid = crypto.randomUUID(), now = Date.now();
   await env.DB.prepare('UPDATE users SET last = ?, sid = ?, sidt = ?, sidua = ? WHERE rowid = ?').bind(now, sid, now, deviceOf(req), u.rid).run();
-  return { token: await makeToken(env, { role: 'user', rid: u.rid, sid }, USER_DAYS), me: { id: u.id, name: u.name, role: u.role } };
+  return { token: await makeToken(env, { role: 'user', rid: u.rid, sid }, USER_DAYS), me: { id: u.id, name: u.name, role: u.role, g: u.grp } };
 }
 
-/* nx 下次聯絡日期、nn 跟進紀錄幾則、nl 最新一則（前 80 字） */
-async function listStatus(env) {
-  const { results } = await env.DB.prepare(`SELECT s.key, s.p, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx, s.cn, s.cj, s.cm,
-    (SELECT COUNT(*) FROM notes n WHERE n.key = s.key AND n.p = s.p) AS nn,
-    (SELECT substr(n.text, 1, 80) FROM notes n WHERE n.key = s.key AND n.p = s.p ORDER BY n.id DESC LIMIT 1) AS nl
-    FROM status s`).all();
+/* nx 下次聯絡日期、nn 跟進紀錄幾則、nl 最新一則（前 80 字）；g＝null 是後台（全部組別） */
+async function listStatus(env, g) {
+  const sql = `SELECT s.key, s.p, s.g, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx, s.cn, s.cj, s.cm,
+    (SELECT COUNT(*) FROM notes n WHERE n.key = s.key AND n.p = s.p AND n.g = s.g) AS nn,
+    (SELECT substr(n.text, 1, 80) FROM notes n WHERE n.key = s.key AND n.p = s.p AND n.g = s.g ORDER BY n.id DESC LIMIT 1) AS nl
+    FROM status s`;
+  const { results } = g == null ? await env.DB.prepare(sql).all() : await env.DB.prepare(sql + ' WHERE s.g = ?').bind(g).all();
   return results;
 }
 
@@ -212,15 +215,15 @@ async function listStatus(env) {
 async function ownStatus(env, me, key, p) {
   if (me.role === 'view') fail('你的權限只能查看，不能修改', 403);
   checkKey(key);
-  const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ?').bind(key, p).first();
+  const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, me.g).first();
   if (!cur) fail('請先標記這家店的狀態，才能寫跟進紀錄', 400);
   if (cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人可以寫跟進紀錄`, 403);
 }
 
-async function listNotes(env, url) {
+async function listNotes(env, url, g) {
   const key = str(url.searchParams.get('key'), 40), p = str(url.searchParams.get('p'), 20);
   checkKey(key);
-  const { results } = await env.DB.prepare('SELECT id, uid, by, t, text FROM notes WHERE key = ? AND p = ? ORDER BY id DESC LIMIT 200').bind(key, p).all();
+  const { results } = await env.DB.prepare('SELECT id, uid, by, t, text FROM notes WHERE key = ? AND p = ? AND g = ? ORDER BY id DESC LIMIT 200').bind(key, p, g).all();
   return results;
 }
 
@@ -232,7 +235,7 @@ async function addNote(req, env, me) {
   const now = Date.now();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM notes WHERE uid = ? AND t > ?').bind(me.id, now - 3600e3).first();
   if (n >= MAX_NOTES_PER_HOUR) fail('新增太頻繁，請稍後再試', 429);
-  const r = await env.DB.prepare('INSERT INTO notes (key, p, uid, by, t, text) VALUES (?,?,?,?,?,?)').bind(key, p, me.id, me.name, now, text).run();
+  const r = await env.DB.prepare('INSERT INTO notes (key, p, g, uid, by, t, text) VALUES (?,?,?,?,?,?,?)').bind(key, p, me.g, me.id, me.name, now, text).run();
   return { ok: true, id: r.meta.last_row_id, t: now, by: me.name, uid: me.id };
 }
 
@@ -251,18 +254,18 @@ async function setContact(req, env, me) {
   const key = str(b.key, 40), p = str(b.p, 20);
   await ownStatus(env, me, key, p);
   const cn = str(b.cn, 30), cj = str(b.cj, 30), cm = str(b.cm, 30);
-  await env.DB.prepare('UPDATE status SET cn = ?, cj = ?, cm = ? WHERE key = ? AND p = ?').bind(cn || null, cj || null, cm || null, key, p).run();
+  await env.DB.prepare('UPDATE status SET cn = ?, cj = ?, cm = ? WHERE key = ? AND p = ? AND g = ?').bind(cn || null, cj || null, cm || null, key, p, me.g).run();
   return { ok: true };
 }
 
 async function myNotes(env, me) {
   const { results } = await env.DB.prepare(`SELECT n.key, n.p, n.t, n.by, n.text FROM notes n
-    JOIN status s ON s.key = n.key AND s.p = n.p WHERE s.uid = ? ORDER BY n.id`).bind(me.id).all();
+    JOIN status s ON s.key = n.key AND s.p = n.p AND s.g = n.g WHERE s.uid = ? AND s.g = ? ORDER BY n.id`).bind(me.id, me.g).all();
   return results;
 }
 
 async function allNotes(env) {
-  const { results } = await env.DB.prepare('SELECT key, p, t, by, uid, text FROM notes ORDER BY id').all();
+  const { results } = await env.DB.prepare('SELECT key, p, g, t, by, uid, text FROM notes ORDER BY id').all();
   return results;
 }
 
@@ -282,11 +285,11 @@ async function makeRecs(req, env, me) {
   const day = twDay(), since = twDay(Date.now() - REC_DAYS_OTHERS * 864e5);
   const keys = [...new Set(cand.map(c => str(c.key, 40)).filter(k => /^[csnwr]\d{1,20}$/.test(k)))];
   const busy = new Set();
-  // 有人標記過（任何產品）、或最近推薦給別人的，都跳過；分批查，避免參數太多
+  // 同組有人標記過（任何產品）、或最近推薦給同組別人的，都跳過；分批查，避免參數太多
   for (let i = 0; i < keys.length; i += 90) {
     const part = keys.slice(i, i + 90), q = part.map(() => '?').join(',');
-    const a = await env.DB.prepare(`SELECT key FROM status WHERE key IN (${q})`).bind(...part).all();
-    const r = await env.DB.prepare(`SELECT key FROM recs WHERE key IN (${q}) AND day >= ? AND uid != ?`).bind(...part, since, me.id).all();
+    const a = await env.DB.prepare(`SELECT key FROM status WHERE key IN (${q}) AND g = ?`).bind(...part, me.g).all();
+    const r = await env.DB.prepare(`SELECT key FROM recs WHERE key IN (${q}) AND day >= ? AND uid != ? AND g = ?`).bind(...part, since, me.id, me.g).all();
     a.results.concat(r.results).forEach(x => busy.add(x.key));
   }
   // 換一批：今天推薦過、還沒標記的換掉；已經標記的留著
@@ -303,10 +306,10 @@ async function makeRecs(req, env, me) {
   if (!pick.length) fail('這個地區沒有新的店家可以推薦了，可以換個地區或產品');
   const stmts = [
     env.DB.prepare('DELETE FROM recs WHERE day < ?').bind(twDay(Date.now() - 30 * 864e5)),
-    env.DB.prepare('DELETE FROM recs WHERE day = ? AND uid = ? AND key NOT IN (SELECT key FROM status)').bind(day, me.id),
+    env.DB.prepare('DELETE FROM recs WHERE day = ? AND uid = ? AND key NOT IN (SELECT key FROM status WHERE g = ?)').bind(day, me.id, me.g),
   ];
-  pick.forEach((c, i) => stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO recs (day, uid, key, p, name, addr, phone, ind, ci, d, why, ord)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).bind(day, me.id, c.key, c.p, c.name, c.addr, c.phone, c.ind, c.ci, c.d, c.why, 1000 + i)));
+  pick.forEach((c, i) => stmts.push(env.DB.prepare(`INSERT OR IGNORE INTO recs (day, uid, g, key, p, name, addr, phone, ind, ci, d, why, ord)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(day, me.id, me.g, c.key, c.p, c.name, c.addr, c.phone, c.ind, c.ci, c.d, c.why, 1000 + i)));
   await env.DB.batch(stmts);
   return getRecs(env, me);
 }
@@ -317,7 +320,7 @@ async function report(env, url) {
   const since = parseInt(url.searchParams.get('since') || '0', 10) || 0;
   const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).all().then(r => r.results);
   const [users, acts, notes, now, prods] = await Promise.all([
-    q('SELECT id, name, role FROM users ORDER BY id'),
+    q('SELECT id, name, role, grp FROM users ORDER BY id'),
     q(`SELECT uid, s, COUNT(DISTINCT key || '|' || p) AS n FROM log WHERE t >= ? AND uid IS NOT NULL AND s != '' GROUP BY uid, s`, since),
     q('SELECT uid, COUNT(*) AS n FROM notes WHERE t >= ? GROUP BY uid', since),
     q('SELECT uid, s, COUNT(*) AS n FROM status GROUP BY uid, s'),
@@ -331,7 +334,7 @@ async function setNext(req, env, me) {
   const key = str(b.key, 40), p = str(b.p, 20), nx = str(b.nx, 10);
   if (nx && !/^\d{4}-\d{2}-\d{2}$/.test(nx)) fail('日期格式錯誤');
   await ownStatus(env, me, key, p);
-  await env.DB.prepare('UPDATE status SET nx = ? WHERE key = ? AND p = ?').bind(nx || null, key, p).run();
+  await env.DB.prepare('UPDATE status SET nx = ? WHERE key = ? AND p = ? AND g = ?').bind(nx || null, key, p, me.g).run();
   return { ok: true };
 }
 
@@ -384,7 +387,7 @@ async function saveStatus(req, env, me) {
   if (s && !STATUSES.includes(s)) fail('狀態錯誤');
   if (s && !p) fail('缺少產品');
   // 一般權限只能改、取消自己標的；後台改過的（沒有標記人）只有後台能動
-  const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ?').bind(key, p).first();
+  const cur = await env.DB.prepare('SELECT uid, by FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, me.g).first();
   if (cur && cur.uid !== me.id) fail(`這筆是 ${cur.by} 標記的，只有本人或後台可以修改`, 403);
   const ip = ipOf(req), now = Date.now();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM log WHERE ip = ? AND t > ?').bind(ip, now - 3600e3).first();
@@ -392,14 +395,14 @@ async function saveStatus(req, env, me) {
   const name = str(b.name, 100);
   const stmts = [];
   if (s) {
-    stmts.push(env.DB.prepare(`INSERT INTO status (key, p, s, by, uid, t, name, addr, ind, ci, d, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(key, p) DO UPDATE SET s=excluded.s, by=excluded.by, uid=excluded.uid, t=excluded.t, name=excluded.name, addr=excluded.addr,
+    stmts.push(env.DB.prepare(`INSERT INTO status (key, p, g, s, by, uid, t, name, addr, ind, ci, d, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(key, p, g) DO UPDATE SET s=excluded.s, by=excluded.by, uid=excluded.uid, t=excluded.t, name=excluded.name, addr=excluded.addr,
       ind=excluded.ind, ci=excluded.ci, d=excluded.d, phone=excluded.phone`)
-      .bind(key, p, s, me.name, me.id, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30)));
+      .bind(key, p, me.g, s, me.name, me.id, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30)));
   } else {
-    stmts.push(env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ?').bind(key, p));
+    stmts.push(env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, me.g));
   }
-  stmts.push(env.DB.prepare('INSERT INTO log (key, p, s, by, uid, t, name, ip) VALUES (?,?,?,?,?,?,?,?)').bind(key, p, s, me.name, me.id, now, name, ip));
+  stmts.push(env.DB.prepare('INSERT INTO log (key, p, g, s, by, uid, t, name, ip) VALUES (?,?,?,?,?,?,?,?,?)').bind(key, p, me.g, s, me.name, me.id, now, name, ip));
   await env.DB.batch(stmts);
   return { ok: true, t: now, by: me.name, uid: me.id };
 }
@@ -457,22 +460,22 @@ async function saveAccount(req, env) {
 
 async function adminSetStatus(req, env) {
   const b = await body(req);
-  const key = str(b.key, 40), p = str(b.p, 20), s = str(b.s, 10);
+  const key = str(b.key, 40), p = str(b.p, 20), s = str(b.s, 10), g = str(b.g, 20);
   checkKey(key);
   if (s && !STATUSES.includes(s)) fail('狀態錯誤');
-  const row = await env.DB.prepare('SELECT name FROM status WHERE key = ? AND p = ?').bind(key, p).first();
+  const row = await env.DB.prepare('SELECT name FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, g).first();
   if (!row) fail('找不到這筆狀態（可能已被取消）', 404);
   const now = Date.now();
   await env.DB.batch([
-    s ? env.DB.prepare('UPDATE status SET s = ?, by = ?, uid = NULL, t = ? WHERE key = ? AND p = ?').bind(s, ADMIN_BY, now, key, p)
-      : env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ?').bind(key, p),
-    env.DB.prepare('INSERT INTO log (key, p, s, by, t, name, ip) VALUES (?,?,?,?,?,?,?)').bind(key, p, s, ADMIN_BY, now, row.name, ipOf(req)),
+    s ? env.DB.prepare('UPDATE status SET s = ?, by = ?, uid = NULL, t = ? WHERE key = ? AND p = ? AND g = ?').bind(s, ADMIN_BY, now, key, p, g)
+      : env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, g),
+    env.DB.prepare('INSERT INTO log (key, p, g, s, by, t, name, ip) VALUES (?,?,?,?,?,?,?,?)').bind(key, p, g, s, ADMIN_BY, now, row.name, ipOf(req)),
   ]);
   return { ok: true, t: now };
 }
 
 async function listUsers(env) {
-  const { results } = await env.DB.prepare(`SELECT u.id, u.name, u.role, u.created, u.last, u.sidua,
+  const { results } = await env.DB.prepare(`SELECT u.id, u.name, u.role, u.grp, u.created, u.last, u.sidua,
     (SELECT COUNT(*) FROM status s WHERE s.uid = u.id) AS marks FROM users u ORDER BY u.role = 'off', u.id`).all();
   return results;
 }
@@ -482,20 +485,31 @@ async function saveUser(req, env) {
   const b = await body(req);
   const oldId = str(b.oldId, 20), id = str(b.id, 20), name = str(b.name, 20);
   const role = ROLES.includes(b.role) ? b.role : 'user';
+  const grp = str(b.grp, 20);
   if (!id) fail('請輸入編號');
   if (!name) fail('請輸入姓名');
   if (name === ADMIN_BY) fail('「管理員」是保留名稱');
   const dup = await env.DB.prepare('SELECT id FROM users WHERE id = ? COLLATE NOCASE').bind(id).first();
   if (!oldId) {
     if (dup) fail(`編號 ${dup.id} 已經有人使用`);
-    await env.DB.prepare('INSERT INTO users (id, name, role, created) VALUES (?,?,?,?)').bind(id, name, role, Date.now()).run();
+    await env.DB.prepare('INSERT INTO users (id, name, role, grp, created) VALUES (?,?,?,?,?)').bind(id, name, role, grp, Date.now()).run();
     return { ok: true };
   }
-  const cur = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(oldId).first();
+  const cur = await env.DB.prepare('SELECT id, grp FROM users WHERE id = ?').bind(oldId).first();
   if (!cur) fail('找不到這個使用者', 404);
   if (dup && dup.id !== oldId) fail(`編號 ${dup.id} 已經有人使用`);
+  const stmts = [];
+  if (grp !== cur.grp) {
+    // 換組別：他標的店家、寫的跟進紀錄、今天的推薦一起帶到新組別（新組別已經有人標了同一家的，那筆留在原組）
+    stmts.push(
+      env.DB.prepare('UPDATE OR IGNORE status SET g = ? WHERE uid = ? AND g = ?').bind(grp, oldId, cur.grp),
+      env.DB.prepare(`UPDATE notes SET g = ? WHERE g = ? AND EXISTS (SELECT 1 FROM status s WHERE s.key = notes.key AND s.p = notes.p AND s.g = ? AND s.uid = ?) AND notes.uid = ?`)
+        .bind(grp, cur.grp, grp, oldId, oldId),
+      env.DB.prepare('UPDATE recs SET g = ? WHERE uid = ?').bind(grp, oldId));
+  }
   await env.DB.batch([
-    env.DB.prepare('UPDATE users SET id = ?, name = ?, role = ? WHERE id = ?').bind(id, name, role, oldId),
+    ...stmts,
+    env.DB.prepare('UPDATE users SET id = ?, name = ?, role = ?, grp = ? WHERE id = ?').bind(id, name, role, grp, oldId),
     env.DB.prepare('UPDATE status SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
     env.DB.prepare('UPDATE notes SET uid = ?, by = ? WHERE uid = ?').bind(id, name, oldId),
     env.DB.prepare('UPDATE recs SET uid = ? WHERE uid = ?').bind(id, oldId),
@@ -512,7 +526,7 @@ async function deleteUser(req, env) {
 async function listLog(env, url) {
   const before = parseInt(url.searchParams.get('before') || '0', 10) || 2 ** 52;
   const since = parseInt(url.searchParams.get('since') || '0', 10) || 0;
-  const { results } = await env.DB.prepare('SELECT id, key, p, s, by, uid, t, name FROM log WHERE id < ? AND t >= ? ORDER BY id DESC LIMIT 200')
+  const { results } = await env.DB.prepare('SELECT id, key, p, g, s, by, uid, t, name FROM log WHERE id < ? AND t >= ? ORDER BY id DESC LIMIT 200')
     .bind(before, since).all();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM log WHERE t >= ?').bind(since).first();
   return { items: results, total: n };
