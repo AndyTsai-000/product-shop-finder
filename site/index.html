@@ -33,6 +33,9 @@ body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--font)}
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;gap:14px}
 h1{font-size:24px;margin:0;text-wrap:balance}
+h1 a{color:inherit;text-decoration:none;border-radius:6px}
+h1 a:hover{color:var(--accent)}
+h1 a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .lead{color:var(--sub);margin:-6px 0 0;font-size:14px}
 .step{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
   display:flex;flex-direction:column;gap:10px}
@@ -286,7 +289,7 @@ select{flex:1 1 140px;max-width:none}
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>域見夥伴</h1>
+      <h1><a href="./" id="home" title="回到首頁">域見夥伴</a></h1>
     </div>
     <div class="user">
       <button class="btn" id="userBtn" hidden aria-haspopup="true" aria-expanded="false"></button>
@@ -465,7 +468,7 @@ function saveRecent() { save('recent', JSON.stringify(recent)); }
 function removeRecent(p) {
   recent = recent.filter(x => x !== p);
   saveRecent();
-  if (p === product) { product = recent[0] || ''; save('product', product); current = ''; tab = 'list'; road = ''; $('result').hidden = true; renderIndustries(); if (product) loadRelated(product); }
+  if (p === product) { product = recent[0] || ''; save('product', product); current = ''; tab = 'list'; road = ''; renderIndustries(); render(); if (product) loadRelated(product); }
   renderProducts(); updatePickSum();
   if (page === 'rec') renderRec();
 }
@@ -477,7 +480,7 @@ function pickProduct(p) {
   saveRecent();
   current = '';
   tab = 'list'; road = '';
-  $('result').hidden = true;
+  render();
   renderProducts();
   renderIndustries();
   loadRelated(p);
@@ -506,7 +509,7 @@ async function loadRelated(p) {
     relErr = e.message === 'Failed to fetch' ? '連不上伺服器，請檢查網路後再按一次搜尋。' : e.message;
   }
   relBusy = '';
-  if (p === product) { renderIndustries(); if (page === 'rec') renderRec(); }
+  if (p === product) { renderIndustries(); if (page === 'rec') renderRec(); else if (!current) render(); }
 }
 $('searchForm').onsubmit = e => { e.preventDefault(); pickProduct($('q').value); };
 
@@ -626,7 +629,7 @@ async function loadRows(info, ci) {
 async function showList() {
   if (page === 'rec') renderRec();
   $('nameQ').value = ''; newOnly = false;
-  if (!current) { fillRoad(null); return; }
+  if (!current) { areaRows = []; fillRoad(null); render(); return; }
   const county = $('county').value, district = $('district').value, area = county + district;
   const ci = manifest ? manifest.counties.indexOf(county) : -1;
   $('result').hidden = page !== 'find';
@@ -976,7 +979,13 @@ const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v
 
 /* keep：保留目前已展開的筆數和捲動位置（自動更新、標記時用） */
 function render(keep) {
-  if (!current) return;
+  // 總覽：還沒選產業時，列出已標記的店家（有產品就是這個產品的，沒有就是所有產品）
+  const ov = !current;
+  if (ov) {
+    $('result').hidden = page !== 'find' || !statusOk;
+    if (!statusOk) return;
+    if (tab === 'list') tab = 'call';
+  }
   const keepN = keep ? shown : 0, keepY = scrollY;
   statuses = statusMap();
   const county = $('county').value, district = $('district').value;
@@ -984,7 +993,7 @@ function render(keep) {
   const inRoad = (addr, d) => !road || roadOf(addr, county, d) === road;
   // 名單分頁：目前產業、還沒有狀態的店家
   const listAll = areaRows.filter(r => !statuses[r[6]] && inRoad(r[3], r[2]));
-  const nNew = listAll.filter(r => r[10]).length;
+  const nNew = ov ? 0 : listAll.filter(r => r[10]).length;
   if (!nNew) newOnly = false;
   const listItems = (newOnly ? listAll.filter(r => r[10]) : listAll).map(itemOfRow);
   const nb = $('newOnly');
@@ -992,10 +1001,12 @@ function render(keep) {
   nb.textContent = newOnly ? `新開 ${nNew} 家（按這裡看全部）` : `只看新開的店 ${nNew} 家`;
   nb.classList.toggle('on', newOnly); nb.setAttribute('aria-pressed', String(newOnly));
   // 狀態分頁：這個產品所有產業裡、在所選地區的已標記店家（新標記的在前）
-  const marked = Object.entries(statuses)
+  const allP = ov && !product;  // 沒有產品：所有產品的標記，卡片照各自的產品
+  const marked = (allP ? allStatus.map(v => [v.key, v]) : Object.entries(statuses))
     .filter(([, v]) => (ci < 0 || v.ci === ci) && (!district || v.d === district) && inRoad(v.addr, v.d))
     .sort((a, b) => b[1].t - a[1].t);
-  const byStatus = Object.fromEntries(STATUS.map(([s]) => [s, marked.filter(([, v]) => v.s === s).map(([k, v]) => itemOfStatus(k, v))]));
+  const byStatus = Object.fromEntries(STATUS.map(([s]) => [s, marked.filter(([, v]) => v.s === s)
+    .map(([k, v]) => allP ? { ...itemOfStatus(k, v), P: v.p } : itemOfStatus(k, v))]));
 
   const tabs = $('tabs'); tabs.innerHTML = '';
   tabs.hidden = !statusOk;
@@ -1011,19 +1022,20 @@ function render(keep) {
     tabs.appendChild(b);
   };
   if (statusOk) {
-    mk('list', '名單', listItems.length);
+    if (!ov) mk('list', '名單', listItems.length);
     STATUS.forEach(([s, label]) => mk(s, label, byStatus[s].length, 's-' + s));
   }
 
   const area = (district || county || '全台灣') + road;
   const title = $('resTitle');
   title.textContent = tab === 'list' ? current : STATUS_NAME[tab];
+  $('resMap').hidden = ov;
   const sub = document.createElement('span');
   // 店名搜尋：店名、地址、電話有包含就列出
   const nq = $('nameQ').value.trim().toLowerCase();
   const all = tab === 'list' ? listItems : byStatus[tab];
   view = nq ? all.filter(it => (it.name + ' ' + (it.addr || '') + ' ' + (it.phone || '')).toLowerCase().includes(nq)) : all;
-  sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : '（「' + product + '」所有產業）');
+  sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' ? '' : product ? '（「' + product + '」所有產業）' : '（所有產品）');
   title.appendChild(sub);
 
   const box = $('shops'); box.innerHTML = '';
@@ -1031,11 +1043,12 @@ function render(keep) {
   let note = '';
   if (nq && all.length && !view.length) note = `找不到符合「${nq}」的店家。`;
   else if (tab === 'list') note = listNote || (view.length ? '' : '這一區的店家都已經標記狀態了，可以到上方各狀態分頁查看。');
-  else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`;
+  else if (!view.length) note = `這個地區還沒有「${STATUS_NAME[tab]}」的店家。` + (ov ? '點上方的產業列出店家名單，按店家下方的狀態就會出現在這裡。' : `在「名單」裡按店家下方的「${STATUS_NAME[tab]}」，就會移到這裡。`);
   if (note) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = note; box.appendChild(e); }
   do more(); while (shown < Math.min(keepN, view.length));
   if (keep) scrollTo(0, keepY);
 
+  if (ov) { $('source').innerHTML = '這裡是已標記狀態的店家；點上方的產業，就會改列出那個產業的店家名單。'; return; }
   const withPhone = areaRows.filter(r => r[4]).length;
   $('source').innerHTML = (statusOk === false ? '這個網址不能使用狀態功能，請用公開網址 andytsai-000.github.io/product-shop-finder。' : '') +
     `名單來自經濟部商工登記公示資料（沒有電話）與 <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap 貢獻者</a>（部分有電話、信箱、粉專，本區有電話 ${withPhone} 家）。` +
@@ -1176,11 +1189,20 @@ addEventListener('scroll', () => {
   $('toTop').hidden = scrollY < 900;
 }, { passive: true });
 $('toTop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
+/* 點「域見夥伴」回首頁：找店家、取消選的產業，產品和地區留著 */
+$('home').onclick = e => {
+  e.preventDefault();
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  current = ''; currentQ = ''; tab = 'list'; road = '';
+  if (statusOk) setPage('find');
+  renderIndustries(); showList();
+  scrollTo(0, 0);
+};
 
 /* ---------- 頁面：找店家／今日推薦／我的客戶 ---------- */
 let page = 'find';
 function refresh(keep) {
-  if (page === 'find') { if (current) render(keep); }
+  if (page === 'find') render(keep);
   else if (page === 'rec') renderRec();
   else renderMine(keep);
   updatePageCounts();
@@ -1204,11 +1226,11 @@ function setPage(pg) {
   document.querySelectorAll('.pg').forEach(b => { b.classList.toggle('on', b.dataset.pg === pg); b.setAttribute('aria-pressed', String(b.dataset.pg === pg)); });
   $('pickStep').hidden = pg === 'mine';
   $('indStep').hidden = pg !== 'find' || !product;
-  $('result').hidden = pg !== 'find' || !current;
+  $('result').hidden = pg !== 'find' || !(current || statusOk);
   $('pgRec').hidden = pg !== 'rec';
   $('pgMine').hidden = pg !== 'mine';
   updatePickSum();
-  if (pg === 'find') { if (current) render(); }
+  if (pg === 'find') render();
   else if (pg === 'rec') loadRec();
   else renderMine();
   updatePageCounts();

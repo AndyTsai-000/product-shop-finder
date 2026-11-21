@@ -44,6 +44,7 @@ input{flex:1 1 180px}
 .btn:disabled{opacity:.5;cursor:default}
 .btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .err{color:var(--warn);font-size:14px;margin:0;min-height:1.2em}
+.err.ok{color:var(--accent)}
 #msg:empty{display:none}
 .hint{color:var(--sub);font-size:13px;margin:0}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
@@ -169,7 +170,7 @@ h3{font-size:15px;margin:6px 0 0}
         <select id="newRole" aria-label="權限"></select>
         <button class="btn solid">新增</button>
       </form>
-      <p class="hint">同事用「使用者編號＋姓名」登入。權限：一般＝可以標記，只能修改自己標的（別人標的只有後台能改）；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。改完按「儲存變更」一起存。<br>組別：同一組的同事互相看得到標記的店家、跟進紀錄、下次聯絡、聯絡窗口；不同組完全看不到彼此（今日推薦也只避開同組標過的店）。組別空白的人算同一組「未分組」。換組別時，他標過的店家會一起帶到新組別。</p>
+      <p class="hint">同事用「使用者編號＋姓名」登入。權限：一般＝可以標記，只能修改自己標的（別人標的只有後台能改）；檢視＝只能查看；停用＝不能登入（立刻生效，之前標的狀態會保留）。改了編號或姓名，他標過的狀態會一起更新，不用重新登入。改完按「儲存變更」一起存。<br>組別：同一組的同事互相看得到標記的店家、跟進紀錄、下次聯絡、聯絡窗口；不同組完全看不到彼此（今日推薦也只避開同組標過的店）。組別空白的人算同一組「未分組」。換組別時，他標過的店家會一起帶到新組別。<br>刪除使用者時，他標記的店家狀態和跟進紀錄會一起刪除。</p>
       <div class="save-bar" id="userSaveBar">
         <p class="hint" id="userDirty">改好後按「儲存變更」，所有修改會一起存起來。</p>
         <button class="btn solid" id="userSave" disabled>儲存變更</button>
@@ -248,7 +249,9 @@ async function api(path, body) {
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
-const showMsg = t => { $('msg').textContent = t || ''; };
+const showMsg = t => { $('msg').textContent = t || ''; $('msg').classList.remove('ok'); };
+/* 成功訊息（綠色，幾秒後消失） */
+function flashMsg(t) { $('msg').textContent = t; $('msg').classList.add('ok'); setTimeout(() => { if ($('msg').textContent === t) showMsg(''); }, 5000); }
 
 /* ---------- 登入 ---------- */
 function showApp(on) { $('app').hidden = !on; $('gate').hidden = on; $('logoutBtn').hidden = !on; if (!on) setTimeout(() => ($('un').value ? $('pw') : $('un')).focus(), 0); }
@@ -516,9 +519,15 @@ async function loadUsers() {
     [id, nm, grp].forEach(x => x.oninput = markDirty); role.onchange = markDirty;
     const del = el('button', 'btn danger', '刪除');
     del.onclick = async () => {
-      if (!del.classList.contains('sure')) { del.classList.add('sure'); del.textContent = '確定刪除？'; setTimeout(() => { del.classList.remove('sure'); del.textContent = '刪除'; }, 4000); return; }
+      if (!del.classList.contains('sure')) {
+        del.classList.add('sure'); del.textContent = u.marks ? `確定刪除？他標記的 ${u.marks} 家也會刪除` : '確定刪除？';
+        setTimeout(() => { del.classList.remove('sure'); del.textContent = '刪除'; }, 5000); return;
+      }
       del.disabled = true;
-      try { await api('/admin/users/delete', { id: u.id }); urows = urows.filter(r => r.u !== u); loadUsers(); } catch (e) { showMsg(e.message); del.disabled = false; }
+      try {
+        const r = await api('/admin/users/delete', { id: u.id }); urows = urows.filter(x => x.u !== u); loadUsers();
+        showMsg(''); flashMsg(`已刪除 ${u.id} ${u.name}` + (r.deleted ? `，和他標記的 ${r.deleted} 家` : '') + '。');
+      } catch (e) { showMsg(e.message); del.disabled = false; }
     };
     edit.append(id, nm, grp, role, del);
     it.append(edit);

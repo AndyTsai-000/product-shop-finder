@@ -29,7 +29,7 @@
 //   GET  /admin/report?since=<毫秒>          → 統計報表（每人的電聯／拜訪／合作數、跟進則數、各產品狀態）
 //   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
 //   POST /admin/users     {oldId?, id, name, role, grp} → 新增（沒有 oldId）或修改（可改編號、姓名、權限、組別）
-//   POST /admin/users/delete {id}           → 刪除使用者
+//   POST /admin/users/delete {id}           → 刪除使用者（連同他標記的狀態、跟進紀錄、推薦）
 //   GET  /admin/log?since=<毫秒>&before=<id> → 修改紀錄（新到舊，每次 200 筆；since 起算時間，0＝全部）
 //   POST /admin/log/clear {since}            → 清除 since 之後的紀錄（0＝全部），回傳刪掉幾筆
 //
@@ -517,10 +517,18 @@ async function saveUser(req, env) {
   return { ok: true };
 }
 
+/* 刪除使用者：他標記的狀態、那些店家的跟進紀錄、他寫的紀錄、他的推薦一起刪（修改紀錄留著） */
 async function deleteUser(req, env) {
   const id = str((await body(req)).id, 20);
-  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
-  return { ok: true };
+  if (!id) fail('缺少編號');
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM status WHERE uid = ?').bind(id).first();
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM notes WHERE uid = ? OR EXISTS (SELECT 1 FROM status s WHERE s.key = notes.key AND s.p = notes.p AND s.g = notes.g AND s.uid = ?)`).bind(id, id),
+    env.DB.prepare('DELETE FROM status WHERE uid = ?').bind(id),
+    env.DB.prepare('DELETE FROM recs WHERE uid = ?').bind(id),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id),
+  ]);
+  return { ok: true, deleted: n };
 }
 
 async function listLog(env, url) {
