@@ -232,6 +232,66 @@ select{flex:1 1 140px;max-width:none}
 .fu a{color:var(--accent)}
 .sum{font-size:13px;color:var(--sub)}
 @media (max-width:480px){ .fu-btn{min-height:36px;padding:4px 14px} .qd{min-height:36px;padding:6px 13px} }
+/* 清單／地圖切換、地圖 */
+.res-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.seg button{font:inherit;font-size:13px;border:0;background:var(--card);color:var(--sub);padding:4px 12px;min-height:32px;cursor:pointer}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.map-box{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+#map{height:min(62vh,560px);min-height:320px;border-radius:10px;border:1px solid var(--line);z-index:0;background:var(--bg)}
+.leaflet-container{font-family:var(--font)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card)!important;color:var(--ink)!important}
+.leaflet-popup-content{margin:12px 14px!important;font:14px/1.5 var(--font)!important;width:min(280px,70vw)!important}
+.leaflet-popup-content .shop{border-top:0;padding:0}
+.me-dot{width:16px;height:16px;border-radius:50%;background:#2f6fb0;border:3px solid #fff;box-shadow:0 0 0 2px rgb(47 111 176 / .4)}
+/* 卡片：距離、加入路線、店家回報 */
+.lk{font:inherit;font-size:13.5px;border:0;background:none;color:var(--accent);cursor:pointer;padding:0}
+.lk:hover{text-decoration:underline}
+.lk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.dist{color:var(--accent);font-weight:500;white-space:nowrap}
+.flag-tag{grid-column:1/-1;font-size:12.5px;color:var(--warn);font-weight:500}
+.shop.closed>b{text-decoration:line-through;color:var(--sub)}
+.st.flag{color:var(--warn);border-style:dashed;--st:var(--warn)}
+.chip-sm.near{border-color:var(--accent);color:var(--accent)}
+/* 拜訪路線 */
+.route-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:14;width:max-content;max-width:calc(100vw - 32px);
+  display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--accent);border-radius:999px;padding:6px 6px 6px 16px;box-shadow:0 6px 20px rgb(0 0 0 / .2);font-size:14px}
+.route-bar .btn{border-radius:999px;padding:6px 14px}
+body.has-route .wrap{padding-bottom:120px}
+body.has-route .toast{bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 62px)}
+body.has-route .totop{bottom:max(150px,calc(env(safe-area-inset-bottom,0px) + 150px))}
+.route-list{display:flex;flex-direction:column;max-height:min(50vh,420px);overflow:auto;margin-top:6px}
+.ri{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.ri:first-child{border-top:0}
+.ri .no{width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:13px;font-weight:700}
+.ri .t{min-width:0}
+.ri .t b{display:block;font-size:14.5px;word-break:break-word}
+.ri .t span{font-size:12.5px;color:var(--sub);word-break:break-word}
+.ri .ops{display:flex;gap:4px}
+.ri .ops button{width:36px;height:36px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;cursor:pointer;font:inherit;font-size:15px}
+.ri .ops button:disabled{opacity:.35;cursor:default}
+.ri .ops button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.dlg .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.dlg .acts .go{display:inline-flex;align-items:center;padding:8px 16px}
+/* 打完電話問結果、回報問題 */
+.pick-acts{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.pick-acts .btn{text-align:left;min-height:44px}
+.pick-acts .btn.on{background:var(--accent);color:var(--accent-ink)}
+.pick-acts .btn.warn{border-color:var(--warn);color:var(--warn)}
+/* 每週目標 */
+.goal-bar{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px}
+.goal-bar>b{font-size:14px;flex:none}
+.goal-items{display:flex;flex:1 1 220px;gap:16px}
+.gi{flex:1 1 0;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--sub);min-width:0}
+.gi b{color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums}
+.gi .bar{height:7px;border-radius:99px;background:var(--accent-soft);overflow:hidden}
+.gi .bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.gi.done .bar i{background:var(--s-deal)}
+.tip-bar{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 14px;font-size:14px}
+.tip-bar span{flex:1;min-width:0}
+.tip-bar .x2{width:36px;height:36px;border:0;background:none;color:var(--sub);font-size:20px;cursor:pointer;border-radius:8px;flex:none}
+.steps{margin:6px 0 0;padding-left:22px;line-height:1.8}
 </style>
 
 <button class="totop" id="toTop" hidden aria-label="回到上方">↑</button>
@@ -286,6 +346,60 @@ select{flex:1 1 140px;max-width:none}
   <div class="due-list" id="dueList"></div>
 </dialog>
 
+<dialog class="dlg wide" id="callDlg" aria-labelledby="callTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="callTitle"></h2>
+  <p class="sub" id="callSub"></p>
+  <div class="pick-acts">
+    <button class="btn" type="button" data-call="ok">✅ 有接通（標「已電聯」）</button>
+    <button class="btn" type="button" data-call="miss">📵 沒接通，明天再打</button>
+    <button class="btn warn" type="button" data-call="no">🙅 沒有興趣（標「無意願」）</button>
+  </div>
+  <span class="label">順手記一句（可不填）</span>
+  <textarea id="callText" maxlength="500" placeholder="例如：老闆下午才在、要先寄型錄" aria-label="這通電話的紀錄" style="font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-height:60px;width:100%;resize:vertical"></textarea>
+  <p class="err" id="callErr" role="alert"></p>
+  <div class="row"><button class="btn" type="button" data-close>先不記</button></div>
+</dialog>
+
+<dialog class="dlg wide" id="flagDlg" aria-labelledby="flagTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="flagTitle"></h2>
+  <p class="sub">同組的同事都會看到，今日推薦也不會再推已歇業的店。</p>
+  <div class="pick-acts" id="flagActs">
+    <button class="btn" type="button" data-f="closed">已歇業／搬走了</button>
+    <button class="btn" type="button" data-f="phone">電話錯誤／打不通</button>
+    <button class="btn" type="button" data-f="addr">地址找不到</button>
+    <button class="btn warn" type="button" data-f="">取消回報（店家沒問題）</button>
+  </div>
+  <p class="err" id="flagErr" role="alert"></p>
+</dialog>
+
+<dialog class="dlg wide" id="routeDlg" aria-labelledby="routeTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="routeTitle">拜訪路線</h2>
+  <p class="sub">照順序用 Google 地圖導航，從你現在的位置出發，最多 10 家。</p>
+  <div class="route-list" id="routeList"></div>
+  <p class="err" id="routeErr" role="alert"></p>
+  <div class="acts">
+    <a class="go" id="routeGo" target="_blank" rel="noopener">用 Google 地圖導航 ↗</a>
+    <button class="btn" type="button" id="routeSort">照遠近排順序</button>
+    <button class="btn" type="button" id="routeClear" style="border-color:var(--warn);color:var(--warn)">清空</button>
+  </div>
+</dialog>
+
+<dialog class="dlg wide" id="installDlg" aria-labelledby="installTitle">
+  <button class="x" type="button" data-close aria-label="關閉">×</button>
+  <h2 id="installTitle">加到手機主畫面</h2>
+  <p class="sub">加好之後，主畫面會有「域見夥伴」的圖示，一按就打開，不用再找網址。</p>
+  <ol class="steps" id="installSteps"></ol>
+  <div class="row"><button class="btn solid" type="button" data-close>知道了</button></div>
+</dialog>
+
+<div class="route-bar" id="routeBar" hidden>
+  <span id="routeBarT"></span>
+  <button class="btn solid" type="button" id="routeOpen">查看路線</button>
+</div>
+
 <div class="wrap">
   <header class="top">
     <div>
@@ -295,6 +409,7 @@ select{flex:1 1 140px;max-width:none}
       <button class="btn" id="userBtn" hidden aria-haspopup="true" aria-expanded="false"></button>
       <div class="menu" id="userMenu" hidden>
         <span id="userName"></span>
+        <button class="btn" id="installBtn" hidden>📲 加到手機主畫面</button>
         <button class="btn" id="logout">登出</button>
       </div>
     </div>
@@ -316,6 +431,15 @@ select{flex:1 1 140px;max-width:none}
   <div class="due-bar" id="dueBar" hidden>
     <div><b id="dueText"></b> <span id="dueSub"></span></div>
     <button class="btn" id="dueOpen">查看</button>
+  </div>
+  <div class="goal-bar" id="goalBar" hidden>
+    <b id="goalT">本週目標</b>
+    <div class="goal-items" id="goalItems"></div>
+  </div>
+  <div class="tip-bar" id="installTip" hidden>
+    <span>📲 把域見夥伴加到手機主畫面，像 App 一樣一按就開。</span>
+    <button class="btn" type="button" id="installTipGo">怎麼加</button>
+    <button class="x2" type="button" id="installTipX" aria-label="不要再提醒">×</button>
   </div>
   <nav class="pages" id="pages" hidden>
     <button class="pg on" data-pg="find">找店家</button>
@@ -341,6 +465,7 @@ select{flex:1 1 140px;max-width:none}
       <select id="county" aria-label="縣市"></select>
       <select id="district" aria-label="鄉鎮市區"></select>
       <select id="road" aria-label="路名"></select>
+      <button class="btn" type="button" id="nearBtn" title="用手機的位置找出你所在的鄉鎮市區，名單照離你遠近排">📍 用我的位置</button>
     </div>
     <button class="btn pick-done" type="button" id="pickDone" hidden>完成</button>
   </section>
@@ -379,11 +504,21 @@ select{flex:1 1 140px;max-width:none}
     <div class="res-sticky" id="resSticky">
     <div class="res-head">
       <h2 id="resTitle"></h2>
-      <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
+      <div class="res-tools">
+        <div class="seg" id="viewSeg" role="group" aria-label="顯示方式" hidden>
+          <button type="button" data-v="list">清單</button><button type="button" data-v="map">地圖</button>
+        </div>
+        <a class="go" id="resMap" target="_blank" rel="noopener">在 Google 地圖找 ↗</a>
+      </div>
     </div>
     <div class="tabs" id="tabs" role="tablist"></div>
     <input type="search" id="nameQ" placeholder="在名單裡找店名、地址或電話" aria-label="在名單裡找店名、地址或電話" maxlength="30">
     <button class="chip-sm" id="newOnly" hidden aria-pressed="false"></button>
+    <button class="chip-sm near" id="nearChip" hidden></button>
+    </div>
+    <div class="map-box" id="mapBox" hidden>
+      <div id="map" role="region" aria-label="店家地圖"></div>
+      <p class="hint" id="mapNote"></p>
     </div>
     <div class="shops" id="shops"></div>
     <button class="more" id="more" hidden>顯示更多</button>
@@ -529,7 +664,7 @@ function fillDistrict() {
     districtsOf(c).map(d => `<option>${d}</option>`).join('');
   sel.disabled = !c;
 }
-$('county').onchange = () => { fillDistrict(); save('county', $('county').value); save('district', ''); road = ''; renderIndustries(); showList(); };
+$('county').onchange = () => { nearOn = false; fillDistrict(); save('county', $('county').value); save('district', ''); road = ''; renderIndustries(); showList(); };
 $('district').onchange = () => { save('district', $('district').value); road = ''; renderIndustries(); showList(); };
 $('road').onchange = () => { road = $('road').value; render(); };
 
@@ -661,6 +796,16 @@ const STATUS_NAME = Object.fromEntries(STATUS);
 /* 其他產品標過的提醒：狀態 → [動作, 標記人的稱呼] */
 const OTHER_TEXT = { call: ['已電聯', '電聯者'], visit: ['已拜訪', '拜訪者'], no: ['標記無意願', '標記者'], deal: ['標記合作中', '負責人'] };
 let allStatus = [], statuses = {}, statusOk = null, tab = 'list';
+/* 店家回報（同組）、每週目標、這週的成績、我的位置、離我近的排前面、清單／地圖 */
+let flags = {}, goal = { call: 0, visit: 0 }, week = { call: 0, visit: 0 }, myLoc = null, nearOn = false;
+let viewMode = load('viewMode') === 'map' ? 'map' : 'list';
+const FLAG_NAME = { closed: '已歇業', phone: '電話錯誤', addr: '地址找不到' };
+/* 伺服器回的回報、目標、這週成績 */
+function applyExtra(j) {
+  flags = Object.fromEntries((j.flags || []).map(f => [f.key, f]));
+  goal = j.goal || { call: 0, visit: 0 }; week = j.week || { call: 0, visit: 0 };
+  renderGoal();
+}
 
 /* 目前產品的狀態：key → 紀錄。每個產品各自一筆；改版前的舊紀錄（p 空白）
    顯示在所有包含該產業的產品下 */
@@ -704,6 +849,7 @@ function showApp(on) {
     $('userName').textContent = '權限：' + (ROLE_NAME[me.role] || me.role);
   }
   if (!on) setTimeout(() => $('loginId').focus(), 0);
+  updateInstall();
 }
 
 /* 開網頁時：連得到伺服器就要登入；連不到（例如 Claude 網頁版）就只看名單 */
@@ -712,15 +858,15 @@ async function boot() {
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
   catch (e) { statusOk = false; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
-  if (r.ok) { const j = await r.json(); allStatus = j.items; setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (page !== 'rec' && canEdit()) peekRec(); if (product) loadRelated(product); }
+  if (r.ok) { const j = await r.json(); allStatus = j.items; applyExtra(j); setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (page !== 'rec' && canEdit()) peekRec(); if (product) loadRelated(product); }
 }
 
 function logout(msg) {
   token = ''; setMe(null);
   save('tok', '');
-  statusOk = null; allStatus = [];
-  $('userMenu').hidden = true; $('dueBar').hidden = true; $('pages').hidden = true; recItems = [];
-  ['fuDlg', 'dueDlg'].forEach(id => { if ($(id).open) $(id).close(); });
+  statusOk = null; allStatus = []; flags = {};
+  $('userMenu').hidden = true; $('dueBar').hidden = true; $('goalBar').hidden = true; $('installTip').hidden = true; $('pages').hidden = true; recItems = [];
+  ['fuDlg', 'dueDlg', 'callDlg', 'flagDlg'].forEach(id => { if ($(id).open) $(id).close(); });
   $('loginErr').textContent = msg || '';
   showApp(false);
 }
@@ -759,8 +905,8 @@ async function loadStatuses() {
     if (r.status === 401) { logout('登入已失效，請重新登入。'); return; }
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
-    const changed = JSON.stringify(j.items) !== JSON.stringify(allStatus);
-    allStatus = j.items; setMe(j.me); showApp(true); renderDue();
+    const changed = JSON.stringify(j.items) !== JSON.stringify(allStatus) || JSON.stringify(j.flags || []) !== JSON.stringify(Object.values(flags));
+    allStatus = j.items; applyExtra(j); setMe(j.me); showApp(true); renderDue();
     // 沒有變動就不重畫，免得「顯示更多」展開的店家收回去、畫面跳動
     if (changed) refresh(true);
   } catch (e) { /* 暫時連不上就沿用舊資料，下次再抓 */ }
@@ -783,7 +929,8 @@ async function setStatus(item, s) {
   if (!canEdit(prev)) { flash(me && me.role === 'view' ? '你的權限只能查看，不能標記。' : `這筆是 ${prev.by} 標記的，只有本人或後台可以修改。`); return; }
   const by = me.name, uid = me.id;
   const ind = prev && prev.ind && item.src < 0 ? prev.ind : item.ind;
-  const rec = { key: item.key, p: P, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone };
+  const rec = { key: item.key, p: P, s: next, by, uid, t: Date.now(), name: item.name, addr: item.addr, ind, ci: item.ci, d: item.d, phone: item.phone,
+    la: item.lat || (prev && prev.la) || null, lo: item.lon || (prev && prev.lo) || null };
   // 換狀態時，伺服器會保留下次聯絡日期，跟進紀錄也還在
   if (prev && prev.p === P) Object.assign(rec, { nx: prev.nx, nn: prev.nn, nl: prev.nl, cn: prev.cn, cj: prev.cj, cm: prev.cm });
   // 先在畫面上更新，再送到伺服器
@@ -798,6 +945,7 @@ async function setStatus(item, s) {
     await loadStatuses();
     return;
   }
+  if (next === 'call' || next === 'visit') syncSoon();  // 每週目標的數字由伺服器算
   // 店家會移到別的分頁，告訴使用者去哪了，並可以復原
   const undo = !prev || prev.p === P ? () => setStatus(item, prev ? prev.s : '') : null;
   const where = page === 'find' ? `，可到「${STATUS_NAME[next]}」分頁查看` : page === 'rec' ? '，已從推薦移到「我的客戶」' : '';
@@ -950,7 +1098,7 @@ function renderDueList() {
     const meta = document.createElement('div'); meta.style.gridColumn = '1/-1';
     meta.textContent = [r.p, r.ind, STATUS_NAME[r.s], r.addr].filter(Boolean).join('・');
     const act = document.createElement('div'); act.className = 'act';
-    if (r.phone) { const a = document.createElement('a'); a.href = 'tel:' + r.phone.replace(/[^\d+#]/g, ''); a.append(icon('phone'), r.phone); act.appendChild(a); }
+    if (r.phone) { const a = document.createElement('a'); a.href = 'tel:' + r.phone.replace(/[^\d+#]/g, ''); a.append(icon('phone'), r.phone); a.addEventListener('click', () => armCall({ ...itemOfStatus(r.key, r), P: r.p })); act.appendChild(a); }
     if (r.nl) { const x = document.createElement('span'); x.textContent = '📝 ' + r.nl; act.appendChild(x); }
     const btn = document.createElement('button'); btn.className = 'fu-btn'; btn.textContent = r.nn ? '跟進紀錄 ' + r.nn : '寫跟進紀錄';
     btn.onclick = () => openFollow(r);
@@ -975,7 +1123,7 @@ function flash(msg, undo) {
 
 /* ---------- 顯示 ---------- */
 const itemOfRow = r => ({ name: r[0], ci: r[1], d: r[2], addr: r[3], phone: r[4], src: r[5], key: r[6], lat: r[7], lon: r[8], ct: r[9] || {}, nw: r[10] || '', ind: current });
-const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind });
+const itemOfStatus = (key, v) => ({ key, name: v.name, ci: v.ci, d: v.d, addr: v.addr, phone: v.phone, src: -1, ind: v.ind, lat: v.la, lon: v.lo });
 
 /* keep：保留目前已展開的筆數和捲動位置（自動更新、標記時用） */
 function render(keep) {
@@ -1038,7 +1186,7 @@ function render(keep) {
   const sub = document.createElement('span');
   // 店名搜尋：店名、地址、電話有包含就列出
   const nq = $('nameQ').value.trim().toLowerCase();
-  const all = tab === 'list' ? listItems : byStatus[tab];
+  const all = sortNear(tab === 'list' ? listItems : byStatus[tab]);
   view = nq ? all.filter(it => (it.name + ' ' + (it.addr || '') + ' ' + (it.phone || '')).toLowerCase().includes(nq)) : all;
   sub.textContent = area + '・' + (nq ? '符合 ' + view.length.toLocaleString() + ' / ' : '') + all.length.toLocaleString() + ' 家' + (tab === 'list' || !ov ? '' : product ? '（「' + product + '」所有產業）' : '（所有產品）');
   title.appendChild(sub);
@@ -1053,6 +1201,7 @@ function render(keep) {
   if (note) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = note; box.appendChild(e); }
   do more(); while (shown < Math.min(keepN, view.length));
   if (keep) scrollTo(0, keepY);
+  syncView(none, keep);
 
   if (ov) { $('source').textContent = none ? '' : '這裡是已標記狀態的店家；點上方的產業，就會改列出那個產業的店家名單。'; return; }
   const withPhone = areaRows.filter(r => r[4]).length;
@@ -1089,22 +1238,35 @@ function card(it) {
   link.href = mapUrl(it.addr ? it.name + ' ' + it.addr : (it.lat ? it.lat + ',' + it.lon : it.name));
   link.append(icon('pin'), it.addr || ((manifest ? manifest.counties[it.ci] || '' : '') + (it.d || '') + '（看地圖位置）'));
   a.appendChild(link);
+  if (myLoc && it.lat && it.lon) { const x = document.createElement('span'); x.className = 'dist'; x.textContent = '・離你 ' + fmtDist(distOf(it)); a.appendChild(x); }
   d.append(b, s, a);
+  const fl = statusOk ? flags[it.key] : null;
+  if (fl) {
+    const x = document.createElement('div'); x.className = 'flag-tag';
+    const t = new Date(fl.t);
+    x.textContent = '⚠ ' + (FLAG_NAME[fl.f] || fl.f) + '・' + (fl.by || '') + ' 回報 ' + (t.getMonth() + 1) + '/' + t.getDate();
+    d.appendChild(x);
+    if (fl.f === 'closed') d.classList.add('closed');
+  }
   if (it.why) { const w = document.createElement('div'); w.className = 'why'; w.textContent = '推薦原因：' + it.why; d.appendChild(w); }
   // 信箱、粉專、官網：開放地圖有才顯示；沒有粉專就給「找粉專」（用店名＋縣市搜尋 Facebook）
   const ct = it.ct || {}, ln = document.createElement('div'); ln.className = 'links';
   const add = (href, ic, text, title) => {
     const x = document.createElement('a'); x.href = href; x.append(icon(ic), text); x.title = title;
-    if (!href.startsWith('mailto:')) { x.target = '_blank'; x.rel = 'noopener'; }
+    if (!/^(mailto|tel):/.test(href)) { x.target = '_blank'; x.rel = 'noopener'; }
     ln.appendChild(x);
   };
-  if (it.phone) add('tel:' + it.phone.replace(/[^\d+#]/g, ''), 'phone', it.phone, '撥打電話');  // 手機上點了直接撥號
-  if (ln.lastChild) ln.lastChild.className = 'ph';
+  // 手機上點了直接撥號；回到網頁時問通話結果
+  if (it.phone) { add('tel:' + it.phone.replace(/[^\d+#]/g, ''), 'phone', it.phone, '撥打電話'); ln.lastChild.className = 'ph'; ln.lastChild.addEventListener('click', () => armCall(it)); }
   if (ct.e) add('mailto:' + ct.e, 'mail', ct.e, '寄信');
   else { const x = document.createElement('span'); x.className = 'no-mail'; x.append(icon('mail'), '無信箱'); x.title = '公開資料沒有這家店的信箱'; ln.appendChild(x); }
   if (ct.f) add(ct.f, 'fb', '粉絲專頁', '打開 Facebook 粉絲專頁');
   else add('https://www.google.com/search?q=' + encodeURIComponent(it.name + ' ' + (manifest ? manifest.counties[it.ci] || '' : '') + ' facebook'), 'search', '找粉專', '用店名搜尋 Facebook 粉絲專頁');
   if (ct.w) add(ct.w, 'web', '官網', '打開官方網站');
+  const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'lk route-btn';
+  const setRb = () => { const on = inRoute(it.key); rb.textContent = on ? '✓ 在路線裡' : '＋ 加入路線'; rb.setAttribute('aria-pressed', String(on)); rb.title = on ? '從拜訪路線拿掉' : '加到今天的拜訪路線'; };
+  setRb(); rb.onclick = () => { toggleRoute(it); setRb(); };
+  ln.appendChild(rb);
   d.appendChild(ln);
   if (statusOk) {
     const P = it.P !== undefined ? it.P : product;
@@ -1130,6 +1292,12 @@ function card(it) {
       c.onclick = () => setStatus(it, '');
       row.appendChild(c);
     }
+    if (me && me.role === 'user') {
+      const f = document.createElement('button'); f.type = 'button'; f.className = 'st flag';
+      f.textContent = fl ? '⚠ 已回報' : '回報問題'; f.title = '回報已歇業、電話錯誤、地址找不到';
+      f.onclick = () => openFlag(it);
+      row.appendChild(f);
+    }
     if (cur) {
       const n = document.createElement('span'); n.className = 'st-note';
       const t = new Date(cur.t);
@@ -1144,7 +1312,7 @@ function card(it) {
       if (cur.cn || cur.cj || cur.cm) {
         const x = document.createElement('span'); x.className = 'who';
         x.textContent = '👤 ' + [cur.cn, cur.cj].filter(Boolean).join(' ') + (cur.cm ? ' ' : '');
-        if (cur.cm) { const a = document.createElement('a'); a.href = 'tel:' + cur.cm.replace(/[^\d+#]/g, ''); a.textContent = cur.cm; x.appendChild(a); }
+        if (cur.cm) { const a = document.createElement('a'); a.href = 'tel:' + cur.cm.replace(/[^\d+#]/g, ''); a.textContent = cur.cm; a.addEventListener('click', () => armCall(it)); x.appendChild(a); }
         fu.appendChild(x);
       }
       if (cur.nl) { const x = document.createElement('span'); x.className = 'nl'; x.textContent = '📝 ' + cur.nl; x.title = cur.nl; fu.appendChild(x); }
@@ -1199,7 +1367,7 @@ $('toTop').onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
 $('home').onclick = e => {
   e.preventDefault();
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
-  current = ''; currentQ = ''; tab = 'list'; road = '';
+  current = ''; currentQ = ''; tab = 'list'; road = ''; nearOn = false;
   product = ''; save('product', ''); renderProducts(); $('q').value = '';
   $('county').value = ''; fillDistrict(); save('county', ''); save('district', '');
   if (statusOk) setPage('find');
@@ -1405,6 +1573,324 @@ $('mineExport').onclick = async () => {
   btn.disabled = false;
 };
 
+/* ---------- 離我近的店家（用手機位置）---------- */
+const R = 6371e3, rad = x => x * Math.PI / 180;
+function distBetween(a, b) {
+  const dl = rad(a.lat - b.lat), dn = rad(a.lon - b.lon);
+  const h = Math.sin(dl / 2) ** 2 + Math.cos(rad(b.lat)) * Math.cos(rad(a.lat)) * Math.sin(dn / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const distOf = it => distBetween(it, myLoc);
+const fmtDist = m => m < 1000 ? Math.round(m / 10) * 10 + ' 公尺' : (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' 公里';
+/* 已歇業的放最後；開了「離我近」就照距離排（沒有座標、但跟我同一條路的排在 400 公尺左右，其他的照原本順序放後面） */
+function sortNear(arr) {
+  const near = nearOn && myLoc, county = $('county').value;
+  if (!near && !arr.some(it => flags[it.key])) return arr;
+  const key = it => (flags[it.key] && flags[it.key].f === 'closed' ? 1e12 : 0) +
+    (!near ? 0 : it.lat && it.lon ? distOf(it) : myLoc.road && roadOf(it.addr, county, it.d) === myLoc.road ? 400 : 1e9);
+  return arr.map((it, i) => [key(it), i, it]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
+}
+function locate() {
+  return new Promise((ok, no) => {
+    if (!navigator.geolocation) { no(new Error('這個瀏覽器不能使用位置。')); return; }
+    navigator.geolocation.getCurrentPosition(p => ok({ lat: p.coords.latitude, lon: p.coords.longitude }),
+      e => no(new Error(e.code === 1 ? '沒有允許使用位置。請到瀏覽器設定允許這個網站使用位置，再按一次。' : '抓不到目前的位置，請到室外或稍後再試。')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  });
+}
+/* 座標 → 縣市、鄉鎮市區、路名（開放地圖的 Nominatim，只有按按鈕時才查） */
+const GEO_URL = 'https://nominatim.openstreetmap.org/reverse';
+const tw = v => String(v || '').replace(/台/g, '臺');
+async function whereAmI(lat, lon) {
+  const r = await fetch(GEO_URL + '?format=jsonv2&zoom=17&addressdetails=1&accept-language=zh-TW&lat=' + lat + '&lon=' + lon);
+  if (!r.ok) throw new Error('查不到所在地區（' + r.status + '）');
+  const a = (await r.json()).address || {}, vals = Object.values(a).map(tw);
+  const county = Object.keys(AREAS).find(c => vals.includes(c)) || '';
+  const dist = county ? districtsOf(county).find(d => vals.includes(d)) || '' : '';
+  const road = tw(a.road).replace(/(\d+)段$/, (m, n) => cnNum(+n) + '段');
+  return { county, dist, road };
+}
+$('nearBtn').onclick = async () => {
+  const b = $('nearBtn');
+  b.disabled = true; b.textContent = '📍 定位中…';
+  try {
+    const pos = await locate();
+    let w = { county: '', dist: '', road: '' };
+    try { w = await whereAmI(pos.lat, pos.lon); } catch (e) { /* 查不到地區也還能照距離排 */ }
+    myLoc = { ...pos, road: w.road };
+    nearOn = true;
+    if (w.county) {
+      $('county').value = w.county; fillDistrict(); $('district').value = w.dist;
+      save('county', w.county); save('district', w.dist); road = '';
+    }
+    renderIndustries(); updatePickSum(); showList();
+    const where = (w.dist || w.county) ? `已切到你所在的「${w.county}${w.dist}」` : '抓到你的位置了，但查不到在哪個鄉鎮，請自己選地區';
+    flash(where + (current ? '，名單照離你遠近排列（有座標的店會顯示距離）。' : product ? '，點產業就會照離你遠近列出店家。' : '，輸入產品、點產業就會照離你遠近列出店家。'));
+  } catch (e) { flash(e.message); }
+  b.disabled = false; b.textContent = '📍 用我的位置';
+};
+$('nearChip').onclick = () => { nearOn = false; render(); };
+
+/* ---------- 清單／地圖 ---------- */
+let mapObj = null, mapLayer = null, meLayer = null, mapSig = '';
+function loadLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+  if (!loadLeaflet.p) loadLeaflet.p = new Promise((ok, no) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+    document.head.appendChild(css);
+    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+    sc.onload = () => ok(window.L); sc.onerror = () => { loadLeaflet.p = null; sc.remove(); no(new Error('地圖載入失敗')); };
+    document.head.appendChild(sc);
+  });
+  return loadLeaflet.p;
+}
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* render() 最後：決定顯示清單還是地圖 */
+function syncView(none, keep) {
+  const can = statusOk === true && !none;
+  $('viewSeg').hidden = !can;
+  const map = can && viewMode === 'map';
+  $('viewSeg').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.v === (map ? 'map' : 'list')); b.setAttribute('aria-pressed', String(b.dataset.v === (map ? 'map' : 'list'))); });
+  $('mapBox').hidden = !map; $('shops').hidden = map;
+  if (map) $('more').hidden = true;
+  const nc = $('nearChip');
+  nc.hidden = !(nearOn && myLoc) || none;
+  nc.textContent = '📍 離你近的排前面' + (myLoc && myLoc.road ? '（' + myLoc.road + '）' : '') + '・按這裡取消';
+  if (map) renderMap(keep);
+}
+$('viewSeg').querySelectorAll('button').forEach(b => b.onclick = () => { viewMode = b.dataset.v; save('viewMode', viewMode); mapSig = ''; render(); });
+async function renderMap(keep) {
+  const pts = view.filter(it => it.lat && it.lon), MAX = 3000;
+  const miss = view.length - pts.length;
+  $('mapNote').textContent = !view.length ? '這裡沒有店家。' : (pts.length ? `地圖上有 ${Math.min(pts.length, MAX).toLocaleString()} 家` + (pts.length > MAX ? `（太多了，只畫前 ${MAX} 家，選小一點的地區會更清楚）` : '') : '這些店家都沒有座標') +
+    (miss ? `；另外 ${miss.toLocaleString()} 家公開資料沒有座標，不在地圖上，切回「清單」可以看到。` : '。') + ' 點圓點可以看店家、標記狀態。';
+  let L;
+  try { L = await loadLeaflet(); } catch (e) { $('mapNote').textContent = '地圖載入失敗，請檢查網路後再切換一次。'; return; }
+  if (viewMode !== 'map' || $('mapBox').hidden) return;
+  if (!mapObj) {
+    mapObj = L.map('map', { preferCanvas: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 貢獻者' }).addTo(mapObj);
+    mapLayer = L.layerGroup().addTo(mapObj); meLayer = L.layerGroup().addTo(mapObj);
+    mapObj.setView([23.7, 121], 7);
+  }
+  mapObj.invalidateSize();
+  mapLayer.clearLayers(); meLayer.clearLayers();
+  const base = cssVar(tab === 'list' ? '--accent' : '--s-' + tab), grey = cssVar('--s-no');
+  for (const it of pts.slice(0, MAX)) {
+    const closed = flags[it.key] && flags[it.key].f === 'closed';
+    const m = L.circleMarker([it.lat, it.lon], { radius: 7, color: '#ffffff', weight: 1.5, fillColor: closed ? grey : base, fillOpacity: .9 });
+    m.bindPopup(() => card(it), { maxWidth: 300 });
+    m.bindTooltip(it.name, { direction: 'top', offset: [0, -6] });
+    m.addTo(mapLayer);
+  }
+  if (myLoc) L.marker([myLoc.lat, myLoc.lon], { icon: L.divIcon({ className: '', html: '<div class="me-dot"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), title: '你的位置' }).addTo(meLayer);
+  // 換了產業、分頁、地區才重新對焦；自動更新時不動
+  const sig = [current, tab, $('county').value, $('district').value, road, $('nameQ').value, nearOn].join('|');
+  if (keep && sig === mapSig) return;
+  mapSig = sig;
+  const ll = pts.slice(0, MAX).map(it => [it.lat, it.lon]);
+  if (nearOn && myLoc) mapObj.setView([myLoc.lat, myLoc.lon], 15);
+  else if (ll.length) mapObj.fitBounds(L.latLngBounds(ll), { padding: [30, 30], maxZoom: 17 });
+  else if (myLoc) mapObj.setView([myLoc.lat, myLoc.lon], 14);
+}
+
+/* ---------- 拜訪路線（存在這個瀏覽器）---------- */
+const ROUTE_MAX = 10;
+let route = [];
+try { route = JSON.parse(load('route') || '[]').filter(x => x && typeof x.key === 'string').slice(0, ROUTE_MAX); } catch (e) { route = []; }
+const inRoute = key => route.some(r => r.key === key);
+function saveRoute() { save('route', JSON.stringify(route)); renderRouteBar(); if ($('routeDlg').open) renderRoute(); }
+function toggleRoute(it) {
+  if (inRoute(it.key)) { route = route.filter(r => r.key !== it.key); saveRoute(); flash(`已把「${it.name}」從路線拿掉。`); return; }
+  if (route.length >= ROUTE_MAX) { flash(`路線最多 ${ROUTE_MAX} 家，先拿掉幾家再加。`); return; }
+  route.push({ key: it.key, name: it.name, addr: it.addr || '', lat: it.lat || null, lon: it.lon || null, d: it.d || '' });
+  saveRoute();
+  flash(`已加入路線（${route.length} 家），按下方「查看路線」就能導航。`);
+}
+function renderRouteBar() {
+  $('routeBar').hidden = !route.length;
+  document.body.classList.toggle('has-route', !!route.length);
+  $('routeBarT').textContent = '🚗 拜訪路線 ' + route.length + ' 家';
+}
+/* Google 地圖導航網址：出發地＝目前位置，最後一家是終點，中間的是停靠點 */
+const stopOf = r => r.lat && r.lon ? r.lat + ',' + r.lon : r.addr || r.name;
+function routeUrl() {
+  if (!route.length) return '#';
+  const last = route[route.length - 1], mid = route.slice(0, -1);
+  return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + encodeURIComponent(stopOf(last)) +
+    (mid.length ? '&waypoints=' + encodeURIComponent(mid.map(stopOf).join('|')) : '');
+}
+function renderRoute() {
+  const box = $('routeList'); box.innerHTML = '';
+  if (!route.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = '還沒有店家。在店家卡片上按「＋ 加入路線」。'; box.appendChild(e); }
+  route.forEach((r, i) => {
+    const x = document.createElement('div'); x.className = 'ri';
+    const no = document.createElement('span'); no.className = 'no'; no.textContent = i + 1;
+    const t = document.createElement('div'); t.className = 't';
+    const b = document.createElement('b'); b.textContent = r.name;
+    const a = document.createElement('span'); a.textContent = r.addr || r.d || '';
+    t.append(b, a);
+    const ops = document.createElement('div'); ops.className = 'ops';
+    const mk = (txt, label, dis, fn) => { const k = document.createElement('button'); k.type = 'button'; k.textContent = txt; k.setAttribute('aria-label', label + '：' + r.name); k.disabled = dis; k.onclick = fn; ops.appendChild(k); };
+    mk('↑', '往前移', i === 0, () => { [route[i - 1], route[i]] = [route[i], route[i - 1]]; saveRoute(); });
+    mk('↓', '往後移', i === route.length - 1, () => { [route[i + 1], route[i]] = [route[i], route[i + 1]]; saveRoute(); });
+    mk('×', '拿掉', false, () => { route.splice(i, 1); saveRoute(); refresh(true); });
+    x.append(no, t, ops); box.appendChild(x);
+  });
+  $('routeGo').href = routeUrl(); $('routeGo').hidden = !route.length;
+  $('routeSort').hidden = route.length < 2; $('routeClear').hidden = !route.length;
+}
+$('routeOpen').onclick = () => { $('routeErr').textContent = ''; renderRoute(); $('routeDlg').showModal(); };
+$('routeClear').onclick = () => {
+  const b = $('routeClear');
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '確定清空？'; setTimeout(() => { b.dataset.sure = ''; b.textContent = '清空'; }, 4000); return; }
+  b.dataset.sure = ''; b.textContent = '清空';
+  route = []; saveRoute(); refresh(true); $('routeDlg').close();
+};
+/* 照遠近排：從目前位置出發，每次去最近的下一家；沒有座標的照路名排在後面 */
+$('routeSort').onclick = async () => {
+  const b = $('routeSort'); $('routeErr').textContent = '';
+  if (!myLoc) {
+    b.disabled = true; b.textContent = '定位中…';
+    try { myLoc = { ...(await locate()), road: '' }; } catch (e) { $('routeErr').textContent = e.message; }
+    b.disabled = false; b.textContent = '照遠近排順序';
+    if (!myLoc) return;
+  }
+  const has = route.filter(r => r.lat && r.lon), no = route.filter(r => !(r.lat && r.lon));
+  const out = []; let at = myLoc;
+  while (has.length) {
+    let bi = 0, bd = Infinity;
+    has.forEach((r, i) => { const d = distBetween(r, at); if (d < bd) { bd = d; bi = i; } });
+    at = has.splice(bi, 1)[0]; out.push(at);
+  }
+  no.sort((x, y) => (x.d + x.addr).localeCompare(y.d + y.addr, 'zh-Hant', { numeric: true }));
+  route = out.concat(no); saveRoute();
+  $('routeErr').textContent = no.length ? `有 ${no.length} 家沒有座標，照地址排在最後，可以用 ↑↓ 自己調整。` : '';
+};
+
+/* ---------- 打完電話問結果 ---------- */
+let pendingCall = null, callAway = false, callCtx = null;
+const curOf = (it, P) => it.P !== undefined ? allStatus.find(r => r.key === it.key && r.p === P) : statuses[it.key];
+function armCall(it) {
+  const P = it.P !== undefined ? it.P : product;
+  if (!statusOk || !me || me.role !== 'user' || !P || !canEdit(curOf(it, P))) return;
+  pendingCall = { it: { ...it, P }, t: Date.now() }; callAway = false;
+}
+/* 撥號時網頁會跑到背景；回來時跳出視窗 */
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (pendingCall) callAway = true; } else setTimeout(callBack, 400); });
+addEventListener('blur', () => { if (pendingCall) callAway = true; });
+addEventListener('focus', () => setTimeout(callBack, 400));
+function callBack() {
+  if (!pendingCall || !callAway || document.hidden) return;
+  const c = pendingCall; pendingCall = null; callAway = false;
+  if (Date.now() - c.t > 3 * 3600e3 || !statusOk || document.querySelector('dialog[open]')) return;
+  callCtx = c.it;
+  const cur = allStatus.find(r => r.key === c.it.key && r.p === c.it.P);
+  $('callTitle').textContent = '剛剛打給「' + c.it.name + '」';
+  $('callSub').textContent = '通話結果如何？按一下就記好' + (cur ? '（目前是「' + STATUS_NAME[cur.s] + '」）' : '') + '。';
+  $('callText').value = ''; $('callErr').textContent = '';
+  $('callDlg').showModal();
+}
+document.querySelectorAll('[data-call]').forEach(b => b.onclick = async () => {
+  const it = callCtx, kind = b.dataset.call, text = $('callText').value.trim();
+  if (!it) return;
+  document.querySelectorAll('[data-call]').forEach(x => x.disabled = true);
+  const find = () => allStatus.find(r => r.key === it.key && r.p === it.P && me && r.uid === me.id);
+  try {
+    const cur = allStatus.find(r => r.key === it.key && r.p === it.P);
+    if (kind === 'no') await setStatus(it, 'no');
+    else if (!cur) await setStatus(it, 'call');
+    const rec = find();
+    if (!rec) throw new Error('狀態沒有存成功');
+    if (kind === 'miss') { await api('/next', { key: it.key, p: it.P, nx: addDays(1) }); patchRec(rec, { nx: addDays(1) }); }
+    const note = [kind === 'miss' ? '沒接通' : '', text].filter(Boolean).join('：');
+    if (note) await api('/notes', { key: it.key, p: it.P, text: note });
+    $('callDlg').close();
+    flash(kind === 'miss' ? `已記下「${it.name}」沒接通，明天上方會提醒你再打。` : kind === 'no' ? `「${it.name}」已標記為「無意願」。` : `已記下「${it.name}」的通話${note ? '和紀錄' : ''}。`);
+    loadStatuses(); renderDue();
+  } catch (e) { $('callErr').textContent = '沒有記成功：' + errText(e); }
+  document.querySelectorAll('[data-call]').forEach(x => x.disabled = false);
+});
+$('callDlg').onclose = () => { callCtx = null; };
+
+/* ---------- 回報店家問題（同組看得到）---------- */
+let flagIt = null;
+function openFlag(it) {
+  flagIt = it;
+  const fl = flags[it.key];
+  $('flagTitle').textContent = '回報「' + it.name + '」的問題';
+  $('flagErr').textContent = '';
+  $('flagActs').querySelectorAll('[data-f]').forEach(b => { const on = !!fl && b.dataset.f === fl.f; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.hidden = b.dataset.f === '' && !fl; });
+  $('flagDlg').showModal();
+}
+$('flagActs').querySelectorAll('[data-f]').forEach(b => b.onclick = async () => {
+  const it = flagIt, f = b.dataset.f, old = flags[it.key];
+  if (old && old.f === f) { $('flagDlg').close(); return; }
+  b.disabled = true; $('flagErr').textContent = '';
+  try {
+    await api('/flag', { key: it.key, f, name: it.name, addr: it.addr || '' });
+    if (f) flags[it.key] = { key: it.key, f, uid: me.id, by: me.name, t: Date.now(), name: it.name, addr: it.addr || '' };
+    else delete flags[it.key];
+    $('flagDlg').close();
+    refresh(true);
+    flash(f ? `已回報「${it.name}」${FLAG_NAME[f]}，同組的同事都看得到。` : `已取消「${it.name}」的回報。`);
+  } catch (e) { $('flagErr').textContent = '沒有存成功：' + errText(e); }
+  b.disabled = false;
+});
+$('flagDlg').onclose = () => { flagIt = null; };
+
+/* ---------- 每週目標（後台設定，每個人一樣）---------- */
+function renderGoal() {
+  const on = !!(statusOk !== false && me && me.role === 'user' && (goal.call || goal.visit));
+  $('goalBar').hidden = !on;
+  if (!on) return;
+  const box = $('goalItems'); box.innerHTML = '';
+  const done = [['call', '電聯'], ['visit', '拜訪']].filter(([k]) => goal[k] > 0).map(([k, n]) => {
+    const v = week[k] || 0, g = goal[k], ok = v >= g;
+    const w = document.createElement('div'); w.className = 'gi' + (ok ? ' done' : '');
+    w.innerHTML = `<span>${n} <b>${v}</b> / ${g} 家${ok ? ' ✓' : ''}</span><div class="bar"><i style="width:${Math.min(100, v / g * 100)}%"></i></div>`;
+    box.appendChild(w);
+    return ok;
+  });
+  $('goalT').textContent = done.every(Boolean) ? '🎉 本週目標達成' : '本週目標';
+}
+/* 標記後過一下再跟伺服器同步（更新這週的數字） */
+let syncTimer = 0;
+function syncSoon() { clearTimeout(syncTimer); syncTimer = setTimeout(loadStatuses, 1500); }
+
+/* ---------- 加到手機主畫面 ---------- */
+let installEvt = null;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; updateInstall(); });
+addEventListener('appinstalled', () => { installEvt = null; save('installTipX', '1'); updateInstall(); flash('已加到主畫面！之後從主畫面的「域見夥伴」圖示打開就好。'); });
+function updateInstall() {
+  const can = statusOk === true && !standalone();
+  $('installBtn').hidden = !can;
+  $('installTip').hidden = !can || !$('gate').hidden || load('installTipX') === '1' || !matchMedia('(pointer:coarse)').matches;
+}
+async function doInstall() {
+  if (installEvt) {
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch (e) {}
+    installEvt = null; updateInstall(); return;
+  }
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const inApp = /Line\/|FBAN|FBAV|Instagram/.test(ua);
+  const steps = inApp ? ['先點右上角的「⋯」或「分享」，選「用瀏覽器開啟」（iPhone 選 Safari、Android 選 Chrome）', '在瀏覽器裡再按一次「📲 加到手機主畫面」照著做']
+    : ios ? ['用 Safari 打開這個網頁（其他 App 裡的瀏覽器不行）', '按畫面下方的「分享」按鈕（方框加向上的箭頭）', '往下滑，選「加入主畫面」，再按右上角「新增」']
+    : /Android/.test(ua) ? ['用 Chrome 打開這個網頁', '按右上角的「⋮」', '選「加到主畫面」或「安裝應用程式」，再按「新增」']
+    : ['用 Chrome 或 Edge 打開這個網頁', '按網址列右邊的「安裝」圖示（或右上角選單裡的「安裝域見夥伴」）'];
+  const ol = $('installSteps'); ol.innerHTML = '';
+  steps.forEach(t => { const li = document.createElement('li'); li.textContent = t; ol.appendChild(li); });
+  $('installDlg').showModal();
+}
+$('installBtn').onclick = () => { $('userMenu').hidden = true; doInstall(); };
+$('installTipGo').onclick = doInstall;
+$('installTipX').onclick = () => { save('installTipX', '1'); updateInstall(); };
+/* 開網頁比較快、沒網路時也打得開（只在公開網址註冊） */
+if ('serviceWorker' in navigator && /github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+renderRouteBar();
 const saved = load('product');
 if (saved && saved.length <= 20) {
   product = saved;

@@ -65,6 +65,10 @@ input{flex:1 1 180px}
 .item b{font-weight:500;min-width:0;word-break:break-word}
 .meta{grid-column:1/-1;font-size:13px;color:var(--sub);min-width:0;word-break:break-word}
 .ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}
+.goal-form{align-items:center;gap:8px 14px}
+.goal-form label{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.goal-form input{width:76px;flex:none}
+.pill.flag{background:var(--warn)}
 .pill{font-size:12px;border-radius:999px;padding:1px 10px;color:var(--accent-ink);background:var(--st,var(--sub));align-self:start;white-space:nowrap}
 .s-call{--st:var(--s-call)} .s-visit{--st:var(--s-visit)} .s-no{--st:var(--s-no)} .s-deal{--st:var(--s-deal)} .s-{--st:var(--warn)}
 .off b{color:var(--sub);text-decoration:line-through}
@@ -188,12 +192,22 @@ h3{font-size:15px;margin:6px 0 0}
     </dialog>
 
     <section class="card" id="tab-report" hidden>
+      <form class="row goal-form" id="goalForm">
+        <b>每週目標（每個人）</b>
+        <label>電聯 <input type="number" id="goalCall" min="0" max="9999" inputmode="numeric" aria-label="每週電聯目標"> 家</label>
+        <label>拜訪 <input type="number" id="goalVisit" min="0" max="9999" inputmode="numeric" aria-label="每週拜訪目標"> 家</label>
+        <button class="btn solid" id="goalSave">儲存目標</button>
+      </form>
+      <p class="hint">設好後，同事在前台上方會看到這週的進度（填 0 就不顯示）。週一開始算。</p>
       <div class="row" id="repRange" role="group" aria-label="時間範圍"></div>
       <p class="hint">「電聯／拜訪／合作／無意願」是這段期間每個人標記的店家數（同一家店同一個產品只算一次）；「目前」是現在每個人手上的客戶。成交率＝合作中 ÷ 全部標記。修改紀錄清除後，之前的動作就不會算進來。</p>
       <h3>每個人</h3>
       <div class="tbl-wrap"><table class="tbl" id="repUsers"></table></div>
       <h3>各產品（目前）</h3>
       <div class="tbl-wrap"><table class="tbl" id="repProds"></table></div>
+      <h3>店家回報</h3>
+      <p class="hint">同事回報已歇業、電話錯誤、地址找不到的店家。已歇業的不會再出現在今日推薦；確認店家沒問題可以取消回報。</p>
+      <div class="list" id="flagList"></div>
     </section>
 
     <section class="card" id="tab-acct" hidden>
@@ -435,6 +449,38 @@ function table(id, head, rows, total) {
   });
 }
 const rate = (a, b) => b ? Math.round(a / b * 100) + '%' : '—';
+const FLAG_NAME = { closed: '已歇業', phone: '電話錯誤', addr: '地址找不到' };
+$('goalForm').onsubmit = async e => {
+  e.preventDefault();
+  $('goalSave').disabled = true; showMsg('');
+  try {
+    const g = await api('/admin/goal', { call: $('goalCall').value, visit: $('goalVisit').value });
+    $('goalCall').value = g.call; $('goalVisit').value = g.visit;
+    flashMsg(g.call || g.visit ? `已儲存每週目標：電聯 ${g.call} 家、拜訪 ${g.visit} 家。` : '已取消每週目標。');
+    loadReport();
+  } catch (err) { showMsg('沒有存成功：' + err.message); }
+  $('goalSave').disabled = false;
+};
+async function loadFlags() {
+  let list;
+  try { list = await api('/admin/flags'); } catch (e) { showMsg(e.message); return; }
+  const box = $('flagList'); box.innerHTML = '';
+  if (!list.length) { box.append(el('div', 'empty', '目前沒有回報。')); return; }
+  const hasG = list.some(f => f.g);
+  for (const f of list) {
+    const it = el('div', 'item');
+    it.append(el('b', '', f.name || f.key), el('span', 'pill flag', FLAG_NAME[f.f] || f.f));
+    if (f.addr) it.append(el('div', 'meta', f.addr));
+    it.append(el('div', 'meta', `${hasG ? GNAME(f.g) + '・' : ''}${f.uid ? f.uid + ' ' : ''}${f.by || ''} 回報・${fmt(f.t)}`));
+    const ctl = el('div', 'ctl'), del = el('button', 'btn danger', '取消回報');
+    del.onclick = async () => {
+      if (!del.classList.contains('sure')) { del.classList.add('sure'); del.textContent = '確定取消？'; setTimeout(() => { del.classList.remove('sure'); del.textContent = '取消回報'; }, 4000); return; }
+      del.disabled = true;
+      try { await api('/admin/flags/clear', { key: f.key, g: f.g || '' }); flashMsg(`已取消「${f.name || f.key}」的回報。`); loadFlags(); } catch (e) { showMsg(e.message); del.disabled = false; }
+    };
+    ctl.append(del); it.append(ctl); box.append(it);
+  }
+}
 async function loadReport() {
   let d;
   try { d = await api('/admin/report?since=' + repSince(repRange)); } catch (e) { showMsg(e.message); return; }
@@ -442,16 +488,34 @@ async function loadReport() {
   const ids = new Set([...d.users.map(u => u.id), ...d.acts.map(a => a.uid), ...d.now.map(a => a.uid).filter(Boolean)]);
   const name = id => (d.users.find(u => u.id === id) || {}).name || '（已刪除）';
   const grpOf = id => GNAME((d.users.find(u => u.id === id) || {}).grp || '');
+  const goal = d.goal || { call: 0, visit: 0 };
+  if (document.activeElement !== $('goalCall') && document.activeElement !== $('goalVisit')) { $('goalCall').value = goal.call; $('goalVisit').value = goal.visit; }
+  // 本週＋有目標：多一欄「目標達成」（電聯、拜訪各自最多算 100%，取平均）
+  const useGoal = repRange === 'week' && (goal.call || goal.visit);
+  const pct = (c, v) => { const p = [goal.call ? Math.min(1, c / goal.call) : null, goal.visit ? Math.min(1, v / goal.visit) : null].filter(x => x !== null); return Math.round(p.reduce((a, b) => a + b, 0) / p.length * 100); };
   const rows = [...ids].map(id => {
     const a = s => get(d.acts, x => x.uid === id && x.s === s);
     const now = get(d.now, x => x.uid === id), deal = get(d.now, x => x.uid === id && x.s === 'deal');
-    return [id + ' ' + name(id), grpOf(id), a('call'), a('visit'), a('deal'), a('no'), get(d.notes, x => x.uid === id), now, deal, rate(deal, now)];
-  }).filter(r => r.slice(2, 9).some(v => v)).sort((x, y) => x[1].localeCompare(y[1], 'zh-Hant') || y[8] - x[8] || y[7] - x[7]);
+    return Object.assign([id + ' ' + name(id), grpOf(id), a('call'), a('visit'), a('deal'), a('no'), get(d.notes, x => x.uid === id), now, deal, rate(deal, now)], { id });
+  }).filter(r => r.slice(2, 9).some(v => v) || (useGoal && (d.users.find(u => u.id === r.id) || {}).role === 'user'));
+  // 排名：同組裡比，先看目標達成，再看電聯＋拜訪、合作
+  const score = r => (useGoal ? pct(r[2], r[3]) * 1e6 : 0) + (r[2] + r[3]) * 1e3 + r[4];
+  rows.sort((x, y) => x[1].localeCompare(y[1], 'zh-Hant') || score(y) - score(x));
+  const MEDAL = ['🥇', '🥈', '🥉'];
+  let gPrev = null, rank = 0;
+  rows.forEach(r => {
+    rank = r[1] === gPrev ? rank + 1 : 0; gPrev = r[1];
+    const active = r[2] + r[3] + r[4] > 0;
+    r[0] = (active && rank < 3 ? MEDAL[rank] + ' ' : '') + r[0];
+    if (useGoal) r.push(pct(r[2], r[3]) + '%');
+  });
   const sum = i => rows.reduce((n, r) => n + r[i], 0);
   // 還沒有人分組就不顯示組別欄
   const hasG = d.users.some(u => u.grp), cut = r => hasG ? r : [r[0], ...r.slice(2)];
-  table('repUsers', cut(['姓名', '組別', '電聯', '拜訪', '合作', '無意願', '跟進紀錄', '目前客戶', '目前合作中', '成交率']), rows.map(cut),
-    rows.length > 1 ? cut(['合計', '', sum(2), sum(3), sum(4), sum(5), sum(6), sum(7), sum(8), rate(sum(8), sum(7))]) : null);
+  const gh = useGoal ? ['目標達成'] : [], gt = useGoal ? [''] : [];
+  table('repUsers', cut(['姓名', '組別', '電聯', '拜訪', '合作', '無意願', '跟進紀錄', '目前客戶', '目前合作中', '成交率', ...gh]), rows.map(cut),
+    rows.length > 1 ? cut(['合計', '', sum(2), sum(3), sum(4), sum(5), sum(6), sum(7), sum(8), rate(sum(8), sum(7)), ...gt]) : null);
+  loadFlags();
   const prods = [...new Set(d.prods.map(x => x.p))];
   const prows = prods.map(p => {
     const c = s => get(d.prods, x => x.p === p && x.s === s), all = get(d.prods, x => x.p === p);

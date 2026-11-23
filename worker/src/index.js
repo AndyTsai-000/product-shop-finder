@@ -12,6 +12,8 @@
 //   GET  /recommend       （要登入）        → {day, items}：今天推薦給我的店家
 //   POST /recommend       （要登入）{items} → 從前台挑好的候選（已排序）裡，去掉已有人標記、7 天內推薦給別人的，存成今天的推薦（換一批會換掉還沒標記的）
 //   POST /next            （要登入）{key, p, nx} → 設定下次聯絡日期（YYYY-MM-DD，空字串＝清除；只有標記的人可以設）
+//   POST /flag            （要登入）{key, f, name, addr} → 回報店家問題（closed 已歇業／phone 電話錯誤／addr 地址找不到，空字串＝取消），同組看得到
+//   GET /status 另外回 flags（同組的回報）、goal（每週目標 {call, visit}）、week（我這週的電聯／拜訪家數）
 //   POST /related         （要登入）{product, inds} → {partner, client}：自行輸入的產品由 AI 從 inds 挑相關產業（結果存起來，同產品不再問）
 // 同一個帳號在別的瀏覽器登入後，舊瀏覽器的 me 會多 other: {t, ua}（最後一次登入的時間、裝置），前台跳提醒
 // 權限（role）：user 一般＝只能改自己標的／view 檢視＝只能看／off 停用＝不能登入（別人標的只有後台能改）
@@ -27,6 +29,9 @@
 //   POST /admin/notes/delete {id}           → 刪除一則跟進紀錄
 //   GET  /admin/notes/all                   → 全部跟進紀錄（匯出用）
 //   GET  /admin/report?since=<毫秒>          → 統計報表（每人的電聯／拜訪／合作數、跟進則數、各產品狀態）
+//   GET  /admin/flags                       → 全部店家回報
+//   POST /admin/flags/clear {key, g}        → 取消一筆回報
+//   POST /admin/goal      {call, visit}     → 每週目標（每人，0＝不設）
 //   GET  /admin/users                       → 使用者名單（含最後登入的裝置 sidua）
 //   POST /admin/users     {oldId?, id, name, role, grp} → 新增（沒有 oldId）或修改（可改編號、姓名、權限、組別）
 //   POST /admin/users/delete {id}           → 刪除使用者（連同他標記的狀態、跟進紀錄、推薦）
@@ -66,7 +71,12 @@ export default {
 async function route(req, env, url) {
   const p = url.pathname, m = req.method;
   if (p === '/login' && m === 'POST') return userLogin(req, env);
-  if (p === '/status' && m === 'GET') { const me = await needUser(req, env); return { me, items: await listStatus(env, me.g) }; }
+  if (p === '/status' && m === 'GET') {
+    const me = await needUser(req, env);
+    const [items, flags, goal, week] = await Promise.all([listStatus(env, me.g), listFlags(env, me.g), getGoal(env), myWeek(env, me)]);
+    return { me, items, flags, goal, week };
+  }
+  if (p === '/flag' && m === 'POST') { const me = await needUser(req, env); return setFlag(req, env, me); }
   if (p === '/status' && m === 'POST') { const me = await needUser(req, env); return saveStatus(req, env, me); }
   if (p === '/notes/mine' && m === 'GET') { const me = await needUser(req, env); return myNotes(env, me); }
   if (p === '/contact' && m === 'POST') { const me = await needUser(req, env); return setContact(req, env, me); }
@@ -88,6 +98,9 @@ async function route(req, env, url) {
     if (p === '/admin/notes/all' && m === 'GET') return allNotes(env);
     if (p === '/admin/report' && m === 'GET') return report(env, url);
     if (p === '/admin/notes/delete' && m === 'POST') return deleteNote(req, env, null);
+    if (p === '/admin/flags' && m === 'GET') return listFlags(env, null);
+    if (p === '/admin/flags/clear' && m === 'POST') { const b = await body(req); await env.DB.prepare('DELETE FROM flags WHERE key = ? AND g = ?').bind(str(b.key, 40), str(b.g, 20)).run(); return { ok: true }; }
+    if (p === '/admin/goal' && m === 'POST') return setGoal(req, env);
     if (p === '/admin/users' && m === 'GET') return listUsers(env);
     if (p === '/admin/users' && m === 'POST') return saveUser(req, env);
     if (p === '/admin/users/delete' && m === 'POST') return deleteUser(req, env);
@@ -202,7 +215,7 @@ async function userLogin(req, env) {
 
 /* nx 下次聯絡日期、nn 跟進紀錄幾則、nl 最新一則（前 80 字）；g＝null 是後台（全部組別） */
 async function listStatus(env, g) {
-  const sql = `SELECT s.key, s.p, s.g, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx, s.cn, s.cj, s.cm,
+  const sql = `SELECT s.key, s.p, s.g, s.s, s.by, s.uid, s.t, s.name, s.addr, s.ind, s.ci, s.d, s.phone, s.nx, s.cn, s.cj, s.cm, s.la, s.lo,
     (SELECT COUNT(*) FROM notes n WHERE n.key = s.key AND n.p = s.p AND n.g = s.g) AS nn,
     (SELECT substr(n.text, 1, 80) FROM notes n WHERE n.key = s.key AND n.p = s.p AND n.g = s.g ORDER BY n.id DESC LIMIT 1) AS nl
     FROM status s`;
@@ -290,7 +303,9 @@ async function makeRecs(req, env, me) {
     const part = keys.slice(i, i + 90), q = part.map(() => '?').join(',');
     const a = await env.DB.prepare(`SELECT key FROM status WHERE key IN (${q}) AND g = ?`).bind(...part, me.g).all();
     const r = await env.DB.prepare(`SELECT key FROM recs WHERE key IN (${q}) AND day >= ? AND uid != ? AND g = ?`).bind(...part, since, me.id, me.g).all();
-    a.results.concat(r.results).forEach(x => busy.add(x.key));
+    // 同組回報已歇業的也跳過
+    const f = await env.DB.prepare(`SELECT key FROM flags WHERE key IN (${q}) AND g = ? AND f = 'closed'`).bind(...part, me.g).all();
+    a.results.concat(r.results, f.results).forEach(x => busy.add(x.key));
   }
   // 換一批：今天推薦過、還沒標記的換掉；已經標記的留著
   const { results: mine } = await env.DB.prepare('SELECT key, p FROM recs WHERE day = ? AND uid = ?').bind(day, me.id).all();
@@ -314,6 +329,52 @@ async function makeRecs(req, env, me) {
   return getRecs(env, me);
 }
 
+/* ---------- 店家回報、每週目標 ---------- */
+
+const FLAGS = ['closed', 'phone', 'addr'];
+async function listFlags(env, g) {
+  const sql = 'SELECT key, g, f, uid, by, t, name, addr FROM flags';
+  const { results } = g == null ? await env.DB.prepare(sql + ' ORDER BY t DESC').all() : await env.DB.prepare(sql + ' WHERE g = ?').bind(g).all();
+  return results;
+}
+async function setFlag(req, env, me) {
+  if (me.role !== 'user') fail('你的權限只能查看', 403);
+  const b = await body(req);
+  const key = str(b.key, 40), f = str(b.f, 10);
+  checkKey(key);
+  if (f && !FLAGS.includes(f)) fail('回報類型錯誤');
+  if (f) await env.DB.prepare(`INSERT INTO flags (key, g, f, uid, by, t, name, addr) VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(key, g) DO UPDATE SET f=excluded.f, uid=excluded.uid, by=excluded.by, t=excluded.t, name=excluded.name, addr=excluded.addr`)
+    .bind(key, me.g, f, me.id, me.name, Date.now(), str(b.name, 100), str(b.addr, 200)).run();
+  else await env.DB.prepare('DELETE FROM flags WHERE key = ? AND g = ?').bind(key, me.g).run();
+  return { ok: true };
+}
+async function getGoal(env) {
+  const r = await env.DB.prepare("SELECT v FROM settings WHERE k = 'goal'").first();
+  try { const g = JSON.parse(r.v); return { call: g.call | 0, visit: g.visit | 0 }; } catch { return { call: 0, visit: 0 }; }
+}
+async function setGoal(req, env) {
+  const b = await body(req);
+  const n = v => Math.max(0, Math.min(9999, parseInt(v, 10) || 0));
+  const goal = { call: n(b.call), visit: n(b.visit) };
+  await env.DB.prepare("INSERT OR REPLACE INTO settings (k, v) VALUES ('goal', ?)").bind(JSON.stringify(goal)).run();
+  return goal;
+}
+/* 台灣時間這週一 00:00（毫秒） */
+function weekStart(t = Date.now()) {
+  const d = new Date(t + 8 * 3600e3); d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.getTime() - 8 * 3600e3;
+}
+/* 我這週標了幾家「已電聯」「已拜訪」（同一家店同一個產品只算一次） */
+async function myWeek(env, me) {
+  const { results } = await env.DB.prepare(`SELECT s, COUNT(DISTINCT key || '|' || p) AS n FROM log WHERE uid = ? AND t >= ? AND s IN ('call', 'visit') GROUP BY s`)
+    .bind(me.id, weekStart()).all();
+  const w = { call: 0, visit: 0 };
+  results.forEach(r => { w[r.s] = r.n; });
+  return w;
+}
+
 /* ---------- 統計報表（後台）---------- */
 
 async function report(env, url) {
@@ -326,7 +387,7 @@ async function report(env, url) {
     q('SELECT uid, s, COUNT(*) AS n FROM status GROUP BY uid, s'),
     q('SELECT p, s, COUNT(*) AS n FROM status GROUP BY p, s'),
   ]);
-  return { users, acts, notes, now, prods };
+  return { users, acts, notes, now, prods, goal: await getGoal(env), weekStart: weekStart() };
 }
 
 async function setNext(req, env, me) {
@@ -395,10 +456,12 @@ async function saveStatus(req, env, me) {
   const name = str(b.name, 100);
   const stmts = [];
   if (s) {
-    stmts.push(env.DB.prepare(`INSERT INTO status (key, p, g, s, by, uid, t, name, addr, ind, ci, d, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    // 座標（開放地圖的店才有）：只收台灣範圍內的數字
+    const la = typeof b.la === 'number' && b.la > 21 && b.la < 27 ? b.la : null, lo = typeof b.lo === 'number' && b.lo > 118 && b.lo < 123 ? b.lo : null;
+    stmts.push(env.DB.prepare(`INSERT INTO status (key, p, g, s, by, uid, t, name, addr, ind, ci, d, phone, la, lo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(key, p, g) DO UPDATE SET s=excluded.s, by=excluded.by, uid=excluded.uid, t=excluded.t, name=excluded.name, addr=excluded.addr,
-      ind=excluded.ind, ci=excluded.ci, d=excluded.d, phone=excluded.phone`)
-      .bind(key, p, me.g, s, me.name, me.id, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30)));
+      ind=excluded.ind, ci=excluded.ci, d=excluded.d, phone=excluded.phone, la=COALESCE(excluded.la, status.la), lo=COALESCE(excluded.lo, status.lo)`)
+      .bind(key, p, me.g, s, me.name, me.id, now, name, str(b.addr, 200), str(b.ind, 30), Number.isInteger(b.ci) ? b.ci : null, str(b.d, 10), str(b.phone, 30), la, lo));
   } else {
     stmts.push(env.DB.prepare('DELETE FROM status WHERE key = ? AND p = ? AND g = ?').bind(key, p, me.g));
   }

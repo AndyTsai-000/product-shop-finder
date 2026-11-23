@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS status (
   uid TEXT,                   -- 標記人編號
   nx TEXT,                    -- 下次聯絡日期 YYYY-MM-DD
   cn TEXT, cj TEXT, cm TEXT,  -- 聯絡窗口：姓名、職稱、手機
+  la REAL, lo REAL,          -- 座標（開放地圖的店才有，地圖用）
   PRIMARY KEY (key, p, g)
 );
 CREATE INDEX IF NOT EXISTS status_g ON status(g);
@@ -66,3 +67,12 @@ CREATE TABLE IF NOT EXISTS recs (
 );
 CREATE INDEX IF NOT EXISTS recs_uid ON recs(uid, day);
 CREATE INDEX IF NOT EXISTS recs_key ON recs(key, day);
+CREATE TABLE IF NOT EXISTS flags (
+  key TEXT NOT NULL,
+  g TEXT NOT NULL DEFAULT '',  -- 組別（同組才看得到）
+  f TEXT NOT NULL,             -- closed 已歇業／phone 電話錯誤／addr 地址找不到
+  uid TEXT, by TEXT, t INTEGER NOT NULL,
+  name TEXT, addr TEXT,
+  PRIMARY KEY (key, g)
+);
+CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT);
