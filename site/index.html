@@ -856,7 +856,7 @@ function showApp(on) {
 async function boot() {
   let r;
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
-  catch (e) { statusOk = false; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
+  catch (e) { statusOk = false; $('nearBtn').hidden = true; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
   if (r.ok) { const j = await r.json(); allStatus = j.items; applyExtra(j); setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (page !== 'rec' && canEdit()) peekRec(); if (product) loadRelated(product); }
 }
