@@ -366,9 +366,11 @@ function weekStart(t = Date.now()) {
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
   return d.getTime() - 8 * 3600e3;
 }
+/* 標了又取消的不算：同一個人對同一家店、同一個產品的最後一筆是「取消」，之前的標記就不計入 */
+const NOT_UNDONE = `COALESCE((SELECT m.s FROM log m WHERE m.uid = l.uid AND m.key = l.key AND m.p IS l.p ORDER BY m.t DESC, m.id DESC LIMIT 1), 'x') != ''`;
 /* 我這週標了幾家「已電聯」「已拜訪」（同一家店同一個產品只算一次） */
 async function myWeek(env, me) {
-  const { results } = await env.DB.prepare(`SELECT s, COUNT(DISTINCT key || '|' || p) AS n FROM log WHERE uid = ? AND t >= ? AND s IN ('call', 'visit') GROUP BY s`)
+  const { results } = await env.DB.prepare(`SELECT l.s, COUNT(DISTINCT l.key || '|' || l.p) AS n FROM log l WHERE l.uid = ? AND l.t >= ? AND l.s IN ('call', 'visit') AND ${NOT_UNDONE} GROUP BY l.s`)
     .bind(me.id, weekStart()).all();
   const w = { call: 0, visit: 0 };
   results.forEach(r => { w[r.s] = r.n; });
@@ -382,7 +384,7 @@ async function report(env, url) {
   const q = (sql, ...a) => env.DB.prepare(sql).bind(...a).all().then(r => r.results);
   const [users, acts, notes, now, prods] = await Promise.all([
     q('SELECT id, name, role, grp FROM users ORDER BY id'),
-    q(`SELECT uid, s, COUNT(DISTINCT key || '|' || p) AS n FROM log WHERE t >= ? AND uid IS NOT NULL AND s != '' GROUP BY uid, s`, since),
+    q(`SELECT l.uid, l.s, COUNT(DISTINCT l.key || '|' || l.p) AS n FROM log l WHERE l.t >= ? AND l.uid IS NOT NULL AND l.s != '' AND ${NOT_UNDONE} GROUP BY l.uid, l.s`, since),
     q('SELECT uid, COUNT(*) AS n FROM notes WHERE t >= ? GROUP BY uid', since),
     q('SELECT uid, s, COUNT(*) AS n FROM status GROUP BY uid, s'),
     q('SELECT p, s, COUNT(*) AS n FROM status GROUP BY p, s'),

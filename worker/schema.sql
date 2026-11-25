@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS log (
   key TEXT, s TEXT, by TEXT, t INTEGER, name TEXT, ip TEXT, p TEXT, uid TEXT, g TEXT
 );
 CREATE INDEX IF NOT EXISTS log_t ON log(t);
+CREATE INDEX IF NOT EXISTS log_ukp ON log(uid, key, p, t);
 -- 使用者（編號＋姓名登入）
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,                -- 使用者編號（登入用）

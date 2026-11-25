@@ -629,7 +629,7 @@ async function loadRelated(p) {
   relErr = '';
   if (CUSTOM[p] || relBusy === p) return;
   try { const c = JSON.parse(load('rel2:' + p) || 'null'); if (c) { CUSTOM[p] = c; renderIndustries(); return; } } catch (e) {}
-  if (statusOk === false) { relErr = '查詢產品要用公開網址 andytsai-000.github.io/product-shop-finder 才能使用。'; renderIndustries(); return; }
+  if (statusOk === false) { relErr = bootRetry ? '目前連不上伺服器，新的產品要等有網路才能查（之前查過的產品可以直接看）。' : '查詢產品要用公開網址 andytsai-000.github.io/product-shop-finder 才能使用。'; renderIndustries(); return; }
   if (!manifest || !token) { relErr = ''; return; }  // 名單或登入還沒好，好了會再叫一次
   try {
     relBusy = p;
@@ -703,8 +703,15 @@ const SRC = ['公司', '商號', '開放地圖'];
 let manifest = null, current = '', currentQ = '', shown = 0, areaRows = [], view = [], listNote = '';
 const cache = {};
 
-fetch(DATA + 'manifest.json').then(r => r.json()).then(m => { manifest = m; renderIndustries(); showList(); if (product) loadRelated(product); })
-  .catch(() => { manifest = { industries: {}, counties: [] }; renderIndustries(); });
+function loadManifest() {
+  fetch(DATA + 'manifest.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(m => { manifest = m; renderIndustries(); showList(); if (product) loadRelated(product); })
+    .catch(() => { if (manifest && manifest.ok !== false) return; manifest = { industries: {}, counties: [], ok: false }; renderIndustries(); addEventListener('online', loadManifest, { once: true }); });
+}
+loadManifest();
+/* 訊號不好：看過的名單還能看（存在手機裡），標記要等有網路；恢復時馬上同步 */
+addEventListener('offline', () => flash('目前沒有網路：看過的名單還能看，標記狀態要等有網路。'));
+addEventListener('online', () => { flash('網路恢復了。'); loadStatuses(); });
 
 function infoOf(name) { return manifest && manifest.industries[name]; }
 function countOf(name) {
@@ -756,7 +763,8 @@ function renderIndustries() {
 
 async function loadRows(info, ci) {
   const file = info.split ? `${info.id}-${ci}.json` : `${info.id}.json`;
-  if (!cache[file]) cache[file] = fetch(DATA + file).then(r => r.json());
+  // 失敗的不留著，下次（例如有網路了）再重抓
+  if (!cache[file]) cache[file] = fetch(DATA + file).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch(e => { delete cache[file]; throw e; });
   return cache[file];
 }
 
@@ -780,7 +788,7 @@ async function showList() {
     render();
     const want = current;
     let all;
-    try { all = await loadRows(info, ci); } catch (e) { listNote = '名單載入失敗，請重新整理網頁。'; render(); return; }
+    try { all = await loadRows(info, ci); } catch (e) { if (want !== current) return; listNote = navigator.onLine === false ? '目前沒有網路，這個產業之前沒看過，所以沒有存下來。有網路後再點一次。' : '名單載入失敗，請檢查網路後再點一次產業。'; render(); return; }
     if (want !== current) return;
     areaRows = all.filter(r => (ci < 0 || r[1] === ci) && (!district || r[2] === district));
     listNote = areaRows.length ? '' : '這個地區沒有找到，試試放大地區，或按右上「在 Google 地圖找」。';
@@ -856,7 +864,12 @@ function showApp(on) {
 async function boot() {
   let r;
   try { r = await fetch(API, { cache: 'no-store', headers: authHeaders() }); }
-  catch (e) { statusOk = false; $('nearBtn').hidden = true; showApp(true); if (current) render(); if (product) loadRelated(product); return; }
+  catch (e) {
+    // 正式網址連不上＝暫時沒網路：先給看名單，之後會自己重試；其他地方（例如 Claude 網頁版）本來就連不到
+    bootRetry = navigator.onLine === false || /github\.io$/.test(location.hostname);
+    statusOk = false; $('nearBtn').hidden = true; showApp(true); if (current) render(); if (product) loadRelated(product); return;
+  }
+  if (bootRetry) { bootRetry = false; $('nearBtn').hidden = false; relErr = ''; if (product) renderIndustries(); }
   if (r.status === 401) { logout(token ? '登入已失效，請重新登入。' : ''); return; }
   if (r.ok) { const j = await r.json(); allStatus = j.items; applyExtra(j); setMe(j.me); statusOk = true; showApp(true); renderDue(); setPage(load('page') || 'find'); if (page !== 'rec' && canEdit()) peekRec(); if (product) loadRelated(product); }
 }
@@ -898,8 +911,10 @@ $('userBtn').onclick = () => {
 $('logout').onclick = () => logout('');
 document.addEventListener('click', e => { if (!e.target.closest('.user')) $('userMenu').hidden = true; });
 
+let bootRetry = false;
 async function loadStatuses() {
-  if (!token || statusOk === false) return;
+  if (statusOk === false) { if (bootRetry) boot(); return; }
+  if (!token) return;
   try {
     const r = await fetch(API, { cache: 'no-store', headers: authHeaders() });
     if (r.status === 401) { logout('登入已失效，請重新登入。'); return; }
@@ -1636,9 +1651,9 @@ let mapObj = null, mapLayer = null, meLayer = null, mapSig = '';
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
   if (!loadLeaflet.p) loadLeaflet.p = new Promise((ok, no) => {
-    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.crossOrigin = 'anonymous'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
     document.head.appendChild(css);
-    const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+    const sc = document.createElement('script'); sc.crossOrigin = 'anonymous'; sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
     sc.onload = () => ok(window.L); sc.onerror = () => { loadLeaflet.p = null; sc.remove(); no(new Error('地圖載入失敗')); };
     document.head.appendChild(sc);
   });
